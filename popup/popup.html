@@ -1,6 +1,15 @@
 <html>
-  <body>
-    <h1>Hello World</h1>
+  <body style="font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; padding:12px; width:320px;">
+    <h2 style="margin:0 0 8px 0">Hide Keywords</h2>
+    <form id="keywordForm">
+      <input type="text" id="keywords" placeholder="Enter keywords, comma separated" style="width: 100%; padding:6px; box-sizing:border-box" />
+      <div style="margin-top:8px; display:flex; gap:8px">
+        <button type="submit">Hide</button>
+      </div>
+    </form>
+    <div style="margin-top:8px">
+      <small id="selHint" style="color:#666"></small>
+    </div>
     <script src="popup.js"></script>
   </body>
 </html>
