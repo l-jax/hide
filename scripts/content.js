@@ -1,8 +1,10 @@
+const MAX_MODEL_CHARS = 4000;
+
 function escapeForRegex(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function hideSentencesContainingKeywords(keywords) {
+async function hideSentencesContainingKeywords(keywords) {
     if (!Array.isArray(keywords) || keywords.length === 0) return;
     const escaped = keywords.map(k => escapeForRegex(k)).filter(k => k.length > 0);
     if (escaped.length === 0) return;
@@ -13,6 +15,7 @@ function hideSentencesContainingKeywords(keywords) {
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     const toReplace = [];
     let node;
+    
     while (node = walker.nextNode()) {
         const p = node.parentNode;
         if (!p || ['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT'].includes(p.nodeName)) continue;
@@ -21,13 +24,60 @@ function hideSentencesContainingKeywords(keywords) {
         toReplace.push(node);
     }
 
-    toReplace.forEach(textNode => {
+    toReplace.forEach(async textNode => {
+        let summary;
+        if (textNode.nodeValue.length > MAX_MODEL_CHARS) {
+            // TODO: handle long text nodes by splitting into parts
+            throw new Error('Text node too long for summarization');
+        }
+        summary = await generateSummary(textNode);
+
+        console.log('Summary:', summary);
+
+        if (summary && summary.length > 0 && !keywordRegex.test(summary)) return;
+
         const text = textNode.nodeValue;
         const parts = text.match(sentenceRe) || [text];
         if (parts.length === 1 && !keywordRegex.test(parts[0])) return;
 
         replaceTextNodeWithParts(textNode, parts, (part) => keywordRegex.test(part));
     });
+}
+
+async function generateSummary(textNode) {
+    const options = {
+      sharedContext: 'this is a website',
+      type: textNode.type,
+      format: textNode.format,
+      length: textNode.length < 500 ? 'short' : textNode.length < 2000 ? 'medium' : 'long',
+    };
+    
+    try {
+        const availability = await Summarizer.availability();
+        let summarizer;
+        if (availability === 'unavailable') {
+            console.log('Summarizer API is not available');
+            return null;
+        }
+
+        if (availability === 'available') {
+            summarizer = await Summarizer.create(options);
+        } else {
+            summarizer = await Summarizer.create(options);
+            summarizer.addEventListener('downloadprogress', (e) => {
+                console.log(`Downloaded ${e.loaded * 100}%`);
+            });
+            await summarizer.ready;
+        }
+    
+        const summary = await summarizer.summarize(textNode.nodeValue);
+        summarizer.destroy();
+        return summary;
+    } catch (e) {
+        console.log('Summary generation failed');
+        console.error(e);
+        return null;
+    }
 }
 
 function replaceTextNodeWithParts(textNode, parts, shouldHide) {
