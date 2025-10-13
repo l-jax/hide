@@ -3,9 +3,13 @@
   "description": "Make unwanted content disappear",
   "version": "1.0",
   "manifest_version": 3,
+  "icons": { 
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
   "action": {
     "default_popup": "popup/popup.html",
-    "default_icon": "images/icon.png"
+    "default_icon": "images/icon128.png"
   },
   "permissions": ["scripting","activeTab"],
   "host_permissions": ["http://*/*","https://*/*"],
