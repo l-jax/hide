@@ -7,8 +7,8 @@ A Google Chrome Extension under construction for [Google Chrome Built-in AI Chal
 - [x] set up basic chrome extension
 - [x] hide user-inputted keywords
 - [x] hide sentences containing keywords
-- [ ] use [Summarizer API](https://developer.chrome.com/docs/ai/summarizer-api) to evaluate page contents
-- [ ] hide sentences only if summary contains keywords 
+- [x] use [Summarizer API](https://developer.chrome.com/docs/ai/summarizer-api) to evaluate page contents
+- [x] hide sentences only if summary contains keywords
 - [ ] accept free text input from user
 - [ ] use Summarizer API (or Prompt API) to understand context
 - [ ] hide sentences only if summary matches context
