@@ -1,77 +1,139 @@
 const MAX_MODEL_CHARS = 4000;
 
+const SENTENCE_DELIMITER = /[^.!?\n]+[.!?]?/g;
+const SPECIAL_CHAR = /[.*+?^${}()|[\]\\]/g;
+const IGNORED_NODES = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT']);
+
 function escapeForRegex(s) {
-    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return s.replace(SPECIAL_CHAR, '\\$&');
+}
+
+function isIgnoredNode(parent) {
+    return !parent || IGNORED_NODES.has(parent.nodeName);
+}
+
+function collectTextNodes(root = document.body) {
+    const nodes = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: (n) => {
+            const p = n.parentNode;
+            if (!p || isIgnoredNode(p)) return NodeFilter.FILTER_REJECT;
+            if (!n.nodeValue || !n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+        }
+    });
+    let nd;
+    while (nd = walker.nextNode()) nodes.push(nd);
+    return nodes;
 }
 
 async function hideSentencesContainingKeywords(keywords) {
     if (!Array.isArray(keywords) || keywords.length === 0) return;
+
+    console.log('Hiding sentences containing keywords', keywords);
+
     const escaped = keywords.map(k => escapeForRegex(k)).filter(k => k.length > 0);
     if (escaped.length === 0) return;
     const keywordRegex = new RegExp(`(${escaped.join('|')})`, 'i');
 
-    const sentenceRe = /[^.!?\n]+[.!?]?/g;
+    const textNodes = collectTextNodes();
+    if (textNodes.length === 0) return;
 
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    const toReplace = [];
-    let node;
-    
-    while (node = walker.nextNode()) {
-        const p = node.parentNode;
-        if (!p || ['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT'].includes(p.nodeName)) continue;
-        const text = node.nodeValue;
-        if (!text || !keywordRegex.test(text)) continue;
-        toReplace.push(node);
+    console.log(`Collected ${textNodes.length} text nodes`);
+
+    const nodeTexts = textNodes.map(n => n.nodeValue);
+    const pageText = nodeTexts.join('\n');
+    if (!pageText || pageText.trim().length === 0) return;
+
+    const chunks = [];
+    if (pageText.length <= MAX_MODEL_CHARS) {
+        chunks.push({ text: pageText, startIndex: 0 });
+    } else {
+        let cursor = 0;
+        while (cursor < pageText.length) {
+            const end = Math.min(cursor + MAX_MODEL_CHARS, pageText.length);
+            let sliceEnd = end;
+            const lookahead = Math.min(pageText.length, end + 200);
+            const sub = pageText.slice(end, lookahead);
+            const match = sub.match(/[.!?]\s/);
+            if (match) sliceEnd = end + match.index + 1;
+            chunks.push({ text: pageText.slice(cursor, sliceEnd), startIndex: cursor });
+            cursor = sliceEnd;
+        }
     }
 
-    toReplace.forEach(async textNode => {
-        let summary;
-        if (textNode.nodeValue.length > MAX_MODEL_CHARS) {
-            // TODO: handle long text nodes by splitting into parts
-            throw new Error('Text node too long for summarization');
+    console.log(`Chunked page text into ${chunks.length} pieces for summarization`);
+
+    const summarizer = await createSummarizer();
+    if (!summarizer) return;
+    let combinedSummary = '';
+    for (const chunk of chunks) {
+        try {
+            const s = await generateSummary(summarizer, chunk.text);
+            console.log(`Generated summary for chunk starting at index ${chunk.startIndex}`);
+
+            if (s) combinedSummary += (combinedSummary ? '\n' : '') + s;
+        } catch (e) {
+            console.error('Page summarization chunk failed', e);
         }
-        summary = await generateSummary(textNode);
+    }
 
-        console.log('Summary:', summary);
+    summarizer.destroy();
 
-        if (summary && summary.length > 0 && !keywordRegex.test(summary)) return;
+    if (!combinedSummary || !keywordRegex.test(combinedSummary)) return;
 
-        const text = textNode.nodeValue;
-        const parts = text.match(sentenceRe) || [text];
-        if (parts.length === 1 && !keywordRegex.test(parts[0])) return;
+    console.log('Summary indicates keywords are present on page, proceeding to hide matching sentences');
 
-        replaceTextNodeWithParts(textNode, parts, (part) => keywordRegex.test(part));
-    });
+    const nodeShouldHide = [];
+    for (let ni = 0; ni < textNodes.length; ni++) {
+        const parts = textNodes[ni].nodeValue.match(SENTENCE_DELIMITER) || [textNodes[ni].nodeValue];
+        for (let li = 0; li < parts.length; li++) {
+            if (keywordRegex.test(parts[li])) {
+                if (!nodeShouldHide[ni]) nodeShouldHide[ni] = [];
+                nodeShouldHide[ni][li] = true;
+            }
+        }
+    }
+
+    for (let ni = 0; ni < textNodes.length; ni++) {
+        if (!nodeShouldHide[ni]) continue;
+        const parts = (textNodes[ni].nodeValue.match(SENTENCE_DELIMITER) || [textNodes[ni].nodeValue]);
+        const hideFlags = nodeShouldHide[ni];
+        replaceTextNodeWithParts(textNodes[ni], parts, (part, idx) => !!hideFlags[idx]);
+    }
 }
 
-async function generateSummary(textNode) {
+async function createSummarizer() {
+    const availability = await Summarizer.availability();
+    if (availability === 'unavailable') {
+        console.log('Summarizer API is not available');
+        return null;
+    }
+
     const options = {
       sharedContext: 'this is a website',
-      type: textNode.type,
-      format: textNode.format,
-      length: textNode.length < 500 ? 'short' : textNode.length < 2000 ? 'medium' : 'long',
+      type: 'tldr',
+      format: 'plain-text',
+      length: 'short',
     };
-    
-    try {
-        const availability = await Summarizer.availability();
-        let summarizer;
-        if (availability === 'unavailable') {
-            console.log('Summarizer API is not available');
-            return null;
-        }
 
-        if (availability === 'available') {
-            summarizer = await Summarizer.create(options);
-        } else {
-            summarizer = await Summarizer.create(options);
-            summarizer.addEventListener('downloadprogress', (e) => {
-                console.log(`Downloaded ${e.loaded * 100}%`);
-            });
-            await summarizer.ready;
-        }
-    
-        const summary = await summarizer.summarize(textNode.nodeValue);
-        summarizer.destroy();
+    let summarizer;
+    if (availability === 'available') {
+        summarizer = await Summarizer.create(options);
+    } else {
+        summarizer = await Summarizer.create(options);
+        summarizer.addEventListener('downloadprogress', (e) => {
+            console.log(`Downloaded ${e.loaded * 100}%`);
+        });
+        await summarizer.ready;
+    }
+    return summarizer;
+}
+
+async function generateSummary(summarizer, text) {
+    try {    
+        const summary = await summarizer.summarize(text);
+        console.log('Generated summary:', summary);
         return summary;
     } catch (e) {
         console.log('Summary generation failed');
@@ -89,7 +151,7 @@ function replaceTextNodeWithParts(textNode, parts, shouldHide) {
     for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
         try {
-            if (shouldHide && shouldHide(part)) {
+            if (shouldHide && shouldHide(part, i)) {
                 const span = document.createElement('span');
                 span.textContent = part;
                 span.style.background = '#151715';
@@ -102,7 +164,6 @@ function replaceTextNodeWithParts(textNode, parts, shouldHide) {
                 frag.appendChild(document.createTextNode(part));
             }
         } catch (e) {
-            // fall back to text append
             frag.appendChild(document.createTextNode(part));
         }
     }
