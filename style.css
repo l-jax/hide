@@ -1,0 +1,78 @@
+:root {
+  --color-bg: #151715;
+  --color-fg: #fef4ed;
+  --color-accent: #e5d7c7;
+  --color-button-bg: #3e4a1b;
+  --color-button-hover: #8AA166;
+  --font-serif: 'Merriweather', serif;
+  --font-sans: 'Lato', sans-serif;
+}
+
+.hide-extension-blackout {
+  background: var(--color-bg);
+  color: var(--color-bg);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+#hide-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg);
+  opacity: 0.98;
+  z-index: 999999;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#hide-overlay > div {
+  pointer-events: auto;
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-size: 1.5rem;
+  background: var(--color-bg);
+  padding: 24px 32px;
+}
+
+.hide-popup-body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  padding: 12px;
+  width: 320px;
+}
+
+.hide-popup-body h2 {
+  margin: 0 0 8px 0;
+  font-family: var(--font-sans);
+}
+
+.hide-popup-body input[type="text"] {
+  width: 100%;
+  padding: 6px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  border: 1px solid var(--color-fg);
+  background: var(--color-fg);
+  color: var(--color-bg);
+  font-family: var(--font-serif);
+}
+
+.hide-popup-body button {
+  background: var(--color-button-bg);
+  color: var(--color-fg);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s, color 0.2s;
+  margin-top: 8px;
+}
+
+.hide-popup-body small#selHint {
+  color: var(--color-accent);
+}
