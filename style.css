@@ -3,9 +3,9 @@
   --color-fg: #fef4ed;
   --color-accent: #e5d7c7;
   --color-button-bg: #3e4a1b;
-  --color-button-hover: #8AA166;
-  --font-serif: 'Merriweather', serif;
-  --font-sans: 'Lato', sans-serif;
+  --color-button-hover: #8aa166;
+  --font-serif: "Merriweather", serif;
+  --font-sans: "Lato", sans-serif;
 }
 
 .hide-extension-blackout {

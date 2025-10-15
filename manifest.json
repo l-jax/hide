@@ -3,7 +3,7 @@
   "description": "Make unwanted content disappear",
   "version": "1.0",
   "manifest_version": 3,
-  "icons": { 
+  "icons": {
     "48": "images/icon48.png",
     "128": "images/icon128.png"
   },
@@ -11,19 +11,21 @@
     "default_popup": "popup/popup.html",
     "default_icon": "images/icon128.png"
   },
-  "permissions": ["scripting","activeTab"],
-  "host_permissions": [ "<all_urls>" ],
+  "permissions": ["scripting", "activeTab"],
+  "host_permissions": ["<all_urls>"],
   "content_scripts": [
     {
       "js": ["scripts/content.js"],
-      "matches": [ "<all_urls>" ]
+      "matches": ["<all_urls>"]
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": [ "style.css" ],
-      "matches": [ "<all_urls>" ]
+      "resources": ["style.css"],
+      "matches": ["<all_urls>"]
     }
   ],
-  "trial_tokens" : [ "ArkBZJGOniJzt+Im4tA2F7K8/qR/Zs9gdCSEJAMTTfYvLaSy0XwDadcLr7ufEmR9AZQQHKWgreaPCoRkGZp2eQYAAAB7eyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vZm1icGhtZXBjb2VqZ2NtcGZocGdwZ25va2FsYmxiYmsiLCJmZWF0dXJlIjoiQUlQcm9tcHRBUElNdWx0aW1vZGFsSW5wdXQiLCJleHBpcnkiOjE3NzQzMTA0MDB9" ]
+  "trial_tokens": [
+    "ArkBZJGOniJzt+Im4tA2F7K8/qR/Zs9gdCSEJAMTTfYvLaSy0XwDadcLr7ufEmR9AZQQHKWgreaPCoRkGZp2eQYAAAB7eyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vZm1icGhtZXBjb2VqZ2NtcGZocGdwZ25va2FsYmxiYmsiLCJmZWF0dXJlIjoiQUlQcm9tcHRBUElNdWx0aW1vZGFsSW5wdXQiLCJleHBpcnkiOjE3NzQzMTA0MDB9"
+  ]
 }
