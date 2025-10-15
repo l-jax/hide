@@ -12,11 +12,11 @@
     "default_icon": "images/icon128.png"
   },
   "permissions": ["scripting","activeTab"],
-  "host_permissions": ["http://*/*","https://*/*"],
+  "host_permissions": [ "<all_urls>" ],
   "content_scripts": [
     {
       "js": ["scripts/content.js"],
-      "matches": ["http://*/*","https://*/*"]
+      "matches": [ "<all_urls>" ]
     }
   ],
   "web_accessible_resources": [

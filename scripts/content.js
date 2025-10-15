@@ -2,7 +2,18 @@ const SENTENCE_DELIMITER = /[^.!?\n]+[.!?]?/g;
 const IGNORED_NODES = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT']);
 
 const MAX_MODEL_CHARS = 1000;
-const SCHEMA = { "type": "boolean" };
+const SCHEMA = {
+            "type": "object",
+            "properties": {
+                "doesContainTopic": { "type": "boolean" },
+                "keywords": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                }
+            },
+            "required": ["doesContainTopic"],
+            "additionalProperties": false
+        };
 
 let session;
 
@@ -94,10 +105,10 @@ async function runPrompt(prompt) {
         );
 
         try {
-        const parsed = JSON.parse(result);
-            if (typeof parsed === 'boolean') return parsed;
+            const parsed = JSON.parse(result);
+            return parsed;
         } catch (e) {
-            console.log('Unrecognized prompt response:', res);
+            console.log('Unrecognized prompt response:', result );
             return false;
         }
     } catch (e) {
@@ -156,11 +167,18 @@ async function hideTopic(topic) {
     try {
         for (const chunk of chunks) {
             console.log(`Processing chunk: ${chunk.text}`);
-            const result = await runPrompt(`Does the text discuss the topic: "${topic}"?\n\nText:\n${chunk.text}\n`);
+            const result = await runPrompt(`Does the text discuss the topic: "${topic}"? If so return true and provide a list of keywords that would allow us to censor the topic in the text.\n\nText:\n${chunk.text}\n`);
             console.log('Prompt result:', result);
-            if (result === true) {
+
+            if (result && typeof result === 'object' && result.doesContainTopic === true && Array.isArray(result.keywords) && result.keywords.length > 0) {
+                const keywords = result.keywords.map(k => k.toLowerCase());
                 for (const node of nodes) {
-                    replaceTextNodeWithParts(node, [node.nodeValue], () => true);
+                    if (!node || !node.nodeValue) continue;
+                    const sentences = node.nodeValue.match(SENTENCE_DELIMITER) || [node.nodeValue];
+                    replaceTextNodeWithParts(node, sentences, (part) => {
+                        const lower = part.toLowerCase();
+                        return keywords.some(kw => kw.length > 0 && lower.includes(kw));
+                    });
                 }
             }
         }
