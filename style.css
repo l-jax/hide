@@ -44,11 +44,6 @@
   width: 320px;
 }
 
-.hide-popup-body h2 {
-  margin: 0 0 8px 0;
-  font-family: var(--font-sans);
-}
-
 .hide-popup-body input[type="text"] {
   width: 100%;
   padding: 6px;

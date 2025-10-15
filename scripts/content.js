@@ -1,12 +1,10 @@
-const MAX_MODEL_CHARS = 4000;
-
 const SENTENCE_DELIMITER = /[^.!?\n]+[.!?]?/g;
-const SPECIAL_CHAR = /[.*+?^${}()|[\]\\]/g;
 const IGNORED_NODES = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT']);
 
-function escapeForRegex(s) {
-    return s.replace(SPECIAL_CHAR, '\\$&');
-}
+const MAX_MODEL_CHARS = 1000;
+const SCHEMA = { "type": "boolean" };
+
+let session;
 
 function isIgnoredNode(parent) {
     return !parent || IGNORED_NODES.has(parent.nodeName);
@@ -54,111 +52,6 @@ function removeOverlay() {
     if (overlay) overlay.remove();
 }
 
-async function hideSentencesContainingKeywords(keywords) {
-    showOverlay("Hiding spoilers and sensitive content...");
-    try {
-        if (!Array.isArray(keywords) || keywords.length === 0) return;
-
-        const escaped = keywords.map(k => escapeForRegex(k)).filter(k => k.length > 0);
-        if (escaped.length === 0) return;
-        const keywordRegex = new RegExp(`(${escaped.join('|')})`, 'i');
-
-        const nodes = collectTextNodes();
-        if (nodes.length === 0) return;
-
-        const texts = nodes.map(n => n.nodeValue);
-        const pageText = texts.join('\n');
-        if (!pageText || pageText.trim().length === 0) return;
-
-        const chunks = [];
-        if (pageText.length <= MAX_MODEL_CHARS) {
-            chunks.push({ text: pageText, startIndex: 0 });
-        } else {
-            let position = 0;
-            while (position < pageText.length) {
-                const end = Math.min(position + MAX_MODEL_CHARS, pageText.length);
-                let sliceEnd = end;
-                const lookahead = Math.min(pageText.length, end + 200);
-                const sub = pageText.slice(end, lookahead);
-                const match = sub.match(/[.!?]\s/);
-                if (match) sliceEnd = end + match.index + 1;
-                chunks.push({ text: pageText.slice(position, sliceEnd), startIndex: position });
-                position = sliceEnd;
-            }
-        }
-
-        const summarizer = await createSummarizer(escaped);
-        if (!summarizer) return;
-
-        let combinedSummary = '';
-        for (const chunk of chunks) {
-            try {
-                const summary = await generateSummary(summarizer, chunk.text);
-                if (summary) combinedSummary += (combinedSummary ? '\n' : '') + summary;
-            } catch (e) {
-                console.error('Page summarization chunk failed', e);
-            }
-        }
-
-        summarizer.destroy();
-
-        if (!combinedSummary || !keywordRegex.test(combinedSummary)) return;
-
-        for (let i = 0; i < nodes.length; i++) {
-            const parts = nodes[i].nodeValue.match(SENTENCE_DELIMITER) || [nodes[i].nodeValue];
-            replaceTextNodeWithParts(
-                nodes[i],
-                parts,
-                (part) => keywordRegex.test(part)
-            );
-        }
-    } finally {
-        removeOverlay();
-        console.log('Finished hiding keywords');
-    }
-}
-
-async function createSummarizer(keywords) {
-    const availability = await Summarizer.availability();
-    if (availability === 'unavailable') {
-        console.log('Summarizer API is not available');
-        return null;
-    }
-
-    const options = {
-      sharedContext: `a summary to decide if the webpage talks about ${keywords.join(', ')}`,
-      type: 'tldr',
-      format: 'plain-text',
-      length: 'short',
-      expectedInputLanguages: ["en"],
-      outputLanguage: "en",
-    };
-
-    let summarizer;
-    if (availability === 'available') {
-        summarizer = await Summarizer.create(options);
-    } else {
-        summarizer = await Summarizer.create(options);
-        summarizer.addEventListener('downloadprogress', (e) => {
-            console.log(`Downloaded ${e.loaded * 100}%`);
-        });
-        await summarizer.ready;
-    }
-    return summarizer;
-}
-
-async function generateSummary(summarizer, text) {
-    try {    
-        const summary = await summarizer.summarize(text);
-        console.log('Generated summary:', summary);
-        return summary;
-    } catch (e) {
-        console.log('Summary generation failed');
-        console.error(e);
-        return null;
-    }
-}
-
 function replaceTextNodeWithParts(textNode, parts, shouldHide) {
     if (!textNode || !parts || parts.length === 0) return;
     const parent = textNode.parentNode;
@@ -183,9 +76,104 @@ function replaceTextNodeWithParts(textNode, parts, shouldHide) {
     parent.replaceChild(frag, textNode);
 }
 
+async function runPrompt(prompt) {
+    if (!('LanguageModel' in self)) {
+        console.log('LanguageModel not available');
+        return false;
+    }
+
+    try {
+        if (!session) {
+        session = await LanguageModel.create();
+        }
+        const result = await session.prompt(
+        prompt,
+        {
+            responseConstraint: SCHEMA,
+        }
+        );
+
+        try {
+        const parsed = JSON.parse(result);
+            if (typeof parsed === 'boolean') return parsed;
+        } catch (e) {
+            console.log('Unrecognized prompt response:', res);
+            return false;
+        }
+    } catch (e) {
+        console.log('Prompt failed');
+        console.error(e);
+        console.log('Prompt:', prompt);
+        reset();
+        throw e;
+    }
+}
+
+async function reset() {
+  if (session) {
+    session.destroy();
+  }
+  session = null;
+}
+
+function breakIntoChunks(nodes) {
+    const texts = nodes.map(n => n.nodeValue);
+    const pageText = texts.join('\n');
+    if (!pageText || pageText.trim().length === 0) return;
+
+    const chunks = [];
+    if (pageText.length <= MAX_MODEL_CHARS) {
+        chunks.push({ text: pageText, startIndex: 0 });
+    } else {
+        let position = 0;
+        while (position < pageText.length) {
+            const end = Math.min(position + MAX_MODEL_CHARS, pageText.length);
+            let sliceEnd = end;
+            const lookahead = Math.min(pageText.length, end + 200);
+            const sub = pageText.slice(end, lookahead);
+            const match = sub.match(/[.!?]\s/);
+            if (match) sliceEnd = end + match.index + 1;
+            chunks.push({ text: pageText.slice(position, sliceEnd), startIndex: position });
+            position = sliceEnd;
+        }
+    }
+    return chunks;
+}
+
+async function hideTopic(topic) {
+    if (!topic || typeof topic !== 'string' || !topic.trim()) return;
+    console.log('Hiding topic:', topic);
+
+    const nodes = collectTextNodes();
+    if (nodes.length === 0) return;
+    console.log(`Collected ${nodes.length} text nodes`);
+
+    const chunks = breakIntoChunks(nodes);
+    if (!chunks || chunks.length === 0) return;
+    console.log(`Broken into ${chunks.length} chunks`);
+
+    showOverlay("Hiding content discussing your topic...");
+    try {
+        for (const chunk of chunks) {
+            console.log(`Processing chunk: ${chunk.text}`);
+            const result = await runPrompt(`Does the text discuss the topic: "${topic}"?\n\nText:\n${chunk.text}\n`);
+            console.log('Prompt result:', result);
+            if (result === true) {
+                for (const node of nodes) {
+                    replaceTextNodeWithParts(node, [node.nodeValue], () => true);
+                }
+            }
+        }
+    } finally {
+        removeOverlay();
+        reset();
+    }
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    console.log('Content script received message:', msg);
     if (!msg || !msg.action) return;
-    if (msg.action === 'hideKeywords' && Array.isArray(msg.keywords)) {
-        hideSentencesContainingKeywords(msg.keywords);
+    if (msg.action === 'hideTopic' && typeof msg.topic === 'string') {
+        hideTopic(msg.topic);
     }
 });

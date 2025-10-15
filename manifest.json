@@ -24,5 +24,6 @@
       "resources": [ "style.css" ],
       "matches": [ "<all_urls>" ]
     }
-  ]
+  ],
+  "trial_tokens" : [ "ArkBZJGOniJzt+Im4tA2F7K8/qR/Zs9gdCSEJAMTTfYvLaSy0XwDadcLr7ufEmR9AZQQHKWgreaPCoRkGZp2eQYAAAB7eyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vZm1icGhtZXBjb2VqZ2NtcGZocGdwZ25va2FsYmxiYmsiLCJmZWF0dXJlIjoiQUlQcm9tcHRBUElNdWx0aW1vZGFsSW5wdXQiLCJleHBpcnkiOjE3NzQzMTA0MDB9" ]
 }
