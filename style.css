@@ -8,18 +8,68 @@
   --font-sans: "Lato", sans-serif;
 }
 
+.hide-loading {
+  display: inline-block;
+  white-space: pre;
+}
+
+.hide-loading-char {
+  display: inline-block;
+  padding: 0 2px;
+  transition: opacity 120ms ease;
+}
+
+.hide-loading-char.strike {
+  text-decoration: line-through;
+  opacity: 0.9;
+}
+
+.hide-loading.animate .hide-loading-char {
+  opacity: 1;
+  text-decoration: none;
+  animation-name: hide-strike;
+  animation-timing-function: steps(1);
+  animation-iteration-count: infinite;
+}
+
+@keyframes hide-strike {
+  0% {
+    text-decoration: none;
+    opacity: 1;
+  }
+  49% {
+    text-decoration: none;
+    opacity: 1;
+  }
+  50% {
+    text-decoration: line-through;
+    opacity: 0.95;
+  }
+  100% {
+    text-decoration: line-through;
+    opacity: 0.95;
+  }
+}
+
 .hide-extension-blackout {
-  background: var(--color-bg);
-  color: var(--color-bg);
+  background: #000;
+  color: transparent;
   border-radius: 2px;
   padding: 0 2px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#hide-overlay,
+.hide-extension-blackout {
+  font-family: inherit;
+  font-size: inherit;
 }
 
 #hide-overlay {
   position: fixed;
   inset: 0;
   background: var(--color-bg);
-  opacity: 0.98;
   z-index: 999999;
   pointer-events: none;
   display: flex;
@@ -30,8 +80,9 @@
 #hide-overlay > div {
   pointer-events: auto;
   color: var(--color-fg);
-  font-family: var(--font-sans);
-  font-size: 1.5rem;
+  font-family: var(--font-serif);
+  font-size: 3rem;
+  font-weight: bold;
   background: var(--color-bg);
   padding: 24px 32px;
 }
@@ -66,8 +117,4 @@
   font-weight: bold;
   transition: background 0.2s, color 0.2s;
   margin-top: 8px;
-}
-
-.hide-popup-body small#selHint {
-  color: var(--color-accent);
 }

@@ -52,16 +52,36 @@ function injectContentStylesheet() {
   document.head.appendChild(link);
 }
 
-function showOverlay(message = "Processing...") {
+function showOverlay() {
   injectContentStylesheet();
   if (document.getElementById("hide-overlay")) return;
+
   const overlay = document.createElement("div");
   overlay.id = "hide-overlay";
   overlay.classList.add("hide-overlay");
-  const text = document.createElement("div");
-  text.textContent = message;
-  overlay.appendChild(text);
+
+  const loading = document.createElement("div");
+  loading.className = "hide-loading";
+
+  const word = " hide ";
+  for (const ch of Array.from(word)) {
+    const span = document.createElement("span");
+    span.className = "hide-loading-char";
+    span.textContent = ch;
+    loading.appendChild(span);
+  }
+
+  overlay.appendChild(loading);
   document.body.appendChild(overlay);
+  const chars = Array.from(overlay.querySelectorAll(".hide-loading-char"));
+  const perCharDelay = 0.12;
+  const extra = 0.6;
+  const totalDuration = chars.length * perCharDelay + extra;
+  loading.classList.add("animate");
+  chars.forEach((c, i) => {
+    c.style.animationDelay = `${i * perCharDelay}s`;
+    c.style.animationDuration = `${totalDuration}s`;
+  });
 }
 
 function removeOverlay() {

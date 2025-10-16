@@ -50,7 +50,7 @@ Hide uses a popup to collect user input
 - [ ] improve keyword generation
 - [ ] improve text chunking
 - [ ] add logo to popup
-- [ ] add dynamic loading indicator to overlay
+- [x] add dynamic loading indicator to overlay
 - [ ] use rollup
 - [ ] add an undo button
 - [ ] add a cancel button
