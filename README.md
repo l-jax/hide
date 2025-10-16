@@ -51,4 +51,4 @@ Hide uses a popup to collect user input
 - [ ] use rollup
 - [ ] add an undo button
 - [ ] add a cancel button
-- [ ] close popup when user submits request
+- [x] close popup when user submits request
