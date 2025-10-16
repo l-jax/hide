@@ -224,10 +224,53 @@ async function hideTopic(topic) {
   }
 }
 
+function unhideAll() {
+  removeOverlay();
+
+  const hidden = Array.from(
+    document.querySelectorAll(".hide-extension-blackout")
+  );
+
+  if (hidden.length === 0) return;
+
+  for (const element of hidden) {
+    const parent = element.parentNode;
+    if (!parent) continue;
+    const text = document.createTextNode(element.textContent || "");
+    parent.replaceChild(text, element);
+  }
+
+  try {
+    if (document.body && typeof document.body.normalize === "function") {
+      document.body.normalize();
+    }
+  } catch (e) {
+    console.warn("normalize failed", e);
+  }
+
+  reset();
+  console.log("Restored hidden content");
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   console.log("Content script received message:", msg);
   if (!msg || !msg.action) return;
   if (msg.action === "hideTopic" && typeof msg.topic === "string") {
     hideTopic(msg.topic);
+    return;
+  }
+
+  if (msg.action === "undo") {
+    unhideAll();
+    return;
+  }
+
+  if (msg.action === "queryState") {
+    const hasHiddenContent = !!document.querySelectorAll(
+      ".hide-extension-blackout"
+    ).length;
+    const overlayPresent = !!document.getElementById("hide-overlay");
+    sendResponse({ hasHiddenContent, overlayPresent });
+    return;
   }
 });
