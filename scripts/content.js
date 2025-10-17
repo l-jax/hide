@@ -1,4 +1,3 @@
-const SENTENCE_DELIMITER = /[^.!?\n]+[.!?]?/g;
 const IGNORED_NODES = new Set([
   "SCRIPT",
   "STYLE",
@@ -7,7 +6,12 @@ const IGNORED_NODES = new Set([
   "INPUT",
 ]);
 
-const MAX_MODEL_CHARS = 1000;
+const PROMPT = `
+Does the text discuss the topic
+Text: "{text}"
+Topic: "{topic}"
+If so return true and return set of unique keywords from the text that are related to the topic.
+`;
 const SCHEMA = {
   type: "object",
   properties: {
@@ -89,30 +93,6 @@ function removeOverlay() {
   if (overlay) overlay.remove();
 }
 
-function replaceTextNodeWithParts(textNode, parts, shouldHide) {
-  if (!textNode || !parts || parts.length === 0) return;
-  const parent = textNode.parentNode;
-  if (!parent) return;
-
-  const frag = document.createDocumentFragment();
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    try {
-      if (shouldHide && shouldHide(part, i)) {
-        const span = document.createElement("span");
-        span.textContent = part;
-        span.classList.add("hide-extension-blackout");
-        frag.appendChild(span);
-      } else {
-        frag.appendChild(document.createTextNode(part));
-      }
-    } catch (e) {
-      frag.appendChild(document.createTextNode(part));
-    }
-  }
-  parent.replaceChild(frag, textNode);
-}
-
 async function runPrompt(prompt) {
   if (!("LanguageModel" in self)) {
     console.log("LanguageModel not available");
@@ -150,33 +130,6 @@ async function reset() {
   session = null;
 }
 
-function breakIntoChunks(nodes) {
-  const texts = nodes.map((n) => n.nodeValue);
-  const pageText = texts.join("\n");
-  if (!pageText || pageText.trim().length === 0) return;
-
-  const chunks = [];
-  if (pageText.length <= MAX_MODEL_CHARS) {
-    chunks.push({ text: pageText, startIndex: 0 });
-  } else {
-    let position = 0;
-    while (position < pageText.length) {
-      const end = Math.min(position + MAX_MODEL_CHARS, pageText.length);
-      let sliceEnd = end;
-      const lookahead = Math.min(pageText.length, end + 200);
-      const sub = pageText.slice(end, lookahead);
-      const match = sub.match(/[.!?]\s/);
-      if (match) sliceEnd = end + match.index + 1;
-      chunks.push({
-        text: pageText.slice(position, sliceEnd),
-        startIndex: position,
-      });
-      position = sliceEnd;
-    }
-  }
-  return chunks;
-}
-
 async function hideTopic(topic) {
   if (!topic || typeof topic !== "string" || !topic.trim()) return;
   console.log("Hiding topic:", topic);
@@ -185,16 +138,13 @@ async function hideTopic(topic) {
   if (nodes.length === 0) return;
   console.log(`Collected ${nodes.length} text nodes`);
 
-  const chunks = breakIntoChunks(nodes);
-  if (!chunks || chunks.length === 0) return;
-  console.log(`Broken into ${chunks.length} chunks`);
-
   showOverlay("Hiding content discussing your topic...");
   try {
-    for (const chunk of chunks) {
-      console.log(`Processing chunk: ${chunk.text}`);
+    for (const node of nodes) {
+      if (!node || !node.nodeValue) continue;
+      const text = node.nodeValue;
       const result = await runPrompt(
-        `Does the text discuss the topic: "${topic}"? If so return true and provide a list of keywords that would allow us to censor the topic in the text.\n\nText:\n${chunk.text}\n`
+        PROMPT.replace("{topic}", topic).replace("{text}", text)
       );
       console.log("Prompt result:", result);
 
@@ -206,15 +156,14 @@ async function hideTopic(topic) {
         result.keywords.length > 0
       ) {
         const keywords = result.keywords.map((k) => k.toLowerCase());
-        for (const node of nodes) {
-          if (!node || !node.nodeValue) continue;
-          const sentences = node.nodeValue.match(SENTENCE_DELIMITER) || [
-            node.nodeValue,
-          ];
-          replaceTextNodeWithParts(node, sentences, (part) => {
-            const lower = part.toLowerCase();
-            return keywords.some((kw) => kw.length > 0 && lower.includes(kw));
-          });
+        const lowerText = text.toLowerCase();
+        if (keywords.some((kw) => kw.length > 0 && lowerText.includes(kw))) {
+          const parent = node.parentNode;
+          if (!parent) continue;
+          const span = document.createElement("span");
+          span.textContent = text;
+          span.classList.add("hide-extension-blackout");
+          parent.replaceChild(span, node);
         }
       }
     }
