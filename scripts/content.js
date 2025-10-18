@@ -7,14 +7,16 @@ const IGNORED_NODES = new Set([
 ]);
 
 const PROMPT = `
-Does the following sentence discuss the topic "{topic}" in any context? 
-Sentence: "{sentence}"
-Return true if yes, false if not.
+For each sentence below, does it discuss the topic "{topic}" in any context?
+Return a JSON array of booleans, one for each sentence, in the same order.
+Sentences:
+{sentences}
 `;
 
 const SCHEMA = {
-  type: "boolean",
-  description: "Does the sentence contain the specified topic?",
+  type: "array",
+  items: { type: "boolean" },
+  description: "Array of booleans indicating if each sentence contains the topic.",
 };
 
 let session;
@@ -85,31 +87,24 @@ function removeOverlay() {
   if (overlay) overlay.remove();
 }
 
-async function runPrompt(prompt) {
+async function runPrompt(topic, sentences) {
   if (!("LanguageModel" in self)) {
     console.log("LanguageModel not available");
-    return false;
+    return [];
   }
-
   try {
     if (!session) {
       session = await LanguageModel.create();
     }
+    const prompt = PROMPT
+      .replace("{topic}", topic)
+      .replace("{sentences}", JSON.stringify(sentences));
     const result = await session.prompt(prompt, {
       responseConstraint: SCHEMA,
     });
-
-    try {
-      const parsed = JSON.parse(result);
-      return parsed;
-    } catch (e) {
-      console.log("Unrecognized prompt response:", result);
-      return false;
-    }
+    return JSON.parse(result);
   } catch (e) {
-    console.log("Prompt failed");
-    console.error(e);
-    console.log("Prompt:", prompt);
+    console.log("Prompt failed", e);
     reset();
     throw e;
   }
@@ -139,33 +134,27 @@ async function hideTopic(topic) {
   console.log(`Collected ${nodes.length} text nodes`);
 
   showOverlay();
+
   try {
     for (const node of nodes) {
-      if (!node || !node.nodeValue) continue;
       const sentences = splitIntoSentences(node.nodeValue);
+      if (sentences.length === 0) continue;
+
+      const results = await runPrompt(topic, sentences);
+
       let censored = false;
       const fragments = [];
-
-      for (const sentence of sentences) {
-        console.log("Analyzing sentence:", sentence);
-        const result = await runPrompt(
-          PROMPT.replace("{topic}", topic).replace("{sentence}", sentence)
-        );
-
-        if (!result) continue;
-
-        if (typeof result === "boolean" && result === true) {
-          console.log("Censoring sentence:", sentence);
+      for (let i = 0; i < sentences.length; i++) {
+        if (results[i] === true) {
           const span = document.createElement("span");
-          span.textContent = sentence;
+          span.textContent = sentences[i];
           span.classList.add("hide-extension-blackout");
           fragments.push(span);
           censored = true;
         } else {
-          fragments.push(document.createTextNode(sentence));
+          fragments.push(document.createTextNode(sentences[i]));
         }
       }
-
       if (censored) {
         const parent = node.parentNode;
         if (!parent) continue;
