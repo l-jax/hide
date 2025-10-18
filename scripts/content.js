@@ -7,22 +7,14 @@ const IGNORED_NODES = new Set([
 ]);
 
 const PROMPT = `
-Does the text discuss the topic
-Text: "{text}"
-Topic: "{topic}"
-If so return true and return set of unique keywords from the text that are related to the topic.
+Does the following sentence discuss the topic "{topic}" in any context? 
+Sentence: "{sentence}"
+Return true if yes, false if not.
 `;
+
 const SCHEMA = {
-  type: "object",
-  properties: {
-    doesContainTopic: { type: "boolean" },
-    keywords: {
-      type: "array",
-      items: { type: "string" },
-    },
-  },
-  required: ["doesContainTopic"],
-  additionalProperties: false,
+  type: "boolean",
+  description: "Does the sentence contain the specified topic?",
 };
 
 let session;
@@ -130,6 +122,14 @@ async function reset() {
   session = null;
 }
 
+function splitIntoSentences(text) {
+  if ('Segmenter' in Intl) {
+    const segmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
+    return Array.from(segmenter.segment(text), s => s.segment);
+  }
+  return text.match(/[^\.!\?]+[\.!\?]+/g) || [text];
+}
+
 async function hideTopic(topic) {
   if (!topic || typeof topic !== "string" || !topic.trim()) return;
   console.log("Hiding topic:", topic);
@@ -138,33 +138,39 @@ async function hideTopic(topic) {
   if (nodes.length === 0) return;
   console.log(`Collected ${nodes.length} text nodes`);
 
-  showOverlay("Hiding content discussing your topic...");
+  showOverlay();
   try {
     for (const node of nodes) {
       if (!node || !node.nodeValue) continue;
-      const text = node.nodeValue;
-      const result = await runPrompt(
-        PROMPT.replace("{topic}", topic).replace("{text}", text)
-      );
-      console.log("Prompt result:", result);
+      const sentences = splitIntoSentences(node.nodeValue);
+      let censored = false;
+      const fragments = [];
 
-      if (
-        result &&
-        typeof result === "object" &&
-        result.doesContainTopic === true &&
-        Array.isArray(result.keywords) &&
-        result.keywords.length > 0
-      ) {
-        const keywords = result.keywords.map((k) => k.toLowerCase());
-        const lowerText = text.toLowerCase();
-        if (keywords.some((kw) => kw.length > 0 && lowerText.includes(kw))) {
-          const parent = node.parentNode;
-          if (!parent) continue;
+      for (const sentence of sentences) {
+        console.log("Analyzing sentence:", sentence);
+        const result = await runPrompt(
+          PROMPT.replace("{topic}", topic).replace("{sentence}", sentence)
+        );
+
+        if (!result) continue;
+
+        if (typeof result === "boolean" && result === true) {
+          console.log("Censoring sentence:", sentence);
           const span = document.createElement("span");
-          span.textContent = text;
+          span.textContent = sentence;
           span.classList.add("hide-extension-blackout");
-          parent.replaceChild(span, node);
+          fragments.push(span);
+          censored = true;
+        } else {
+          fragments.push(document.createTextNode(sentence));
         }
+      }
+
+      if (censored) {
+        const parent = node.parentNode;
+        if (!parent) continue;
+        fragments.forEach(frag => parent.insertBefore(frag, node));
+        parent.removeChild(node);
       }
     }
   } finally {
