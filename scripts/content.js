@@ -5,19 +5,11 @@ const IGNORED_NODES = new Set([
   "TEXTAREA",
   "INPUT",
 ]);
-
-const PROMPT = `
-For each sentence below, does it discuss the topic "{topic}" in any context?
-Return a JSON array of booleans, one for each sentence, in the same order.
-Sentences:
-{sentences}
-`;
-
-const SCHEMA = {
-  type: "array",
-  items: { type: "boolean" },
-  description: "Array of booleans indicating if each sentence contains the topic.",
-};
+const CSS = "hide-content-css";
+const OVERLAY = "hide-overlay";
+const BLACKOUT = "hide-extension-blackout";
+const LOADING = "hide-loading";
+const LOADING_CHAR = "hide-loading-char";
 
 let session;
 
@@ -28,10 +20,11 @@ function isIgnoredNode(parent) {
 function collectTextNodes(root = document.body) {
   const nodes = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode: (n) => {
-      const p = n.parentNode;
-      if (!p || isIgnoredNode(p)) return NodeFilter.FILTER_REJECT;
-      if (!n.nodeValue || !n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+    acceptNode: (node) => {
+      const parent = node.parentNode;
+      if (!parent || isIgnoredNode(parent)) return NodeFilter.FILTER_REJECT;
+      if (!node.nodeValue || !node.nodeValue.trim())
+        return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
     },
   });
@@ -41,9 +34,9 @@ function collectTextNodes(root = document.body) {
 }
 
 function injectContentStylesheet() {
-  if (document.getElementById("hide-content-css")) return;
+  if (document.getElementById(CSS)) return;
   const link = document.createElement("link");
-  link.id = "hide-content-css";
+  link.id = CSS;
   link.rel = "stylesheet";
   link.type = "text/css";
   link.href = chrome.runtime.getURL("style.css");
@@ -52,26 +45,27 @@ function injectContentStylesheet() {
 
 function showOverlay() {
   injectContentStylesheet();
-  if (document.getElementById("hide-overlay")) return;
+  if (document.getElementById(OVERLAY)) return;
 
   const overlay = document.createElement("div");
-  overlay.id = "hide-overlay";
-  overlay.classList.add("hide-overlay");
+  overlay.id = OVERLAY;
+  overlay.classList.add(OVERLAY);
 
   const loading = document.createElement("div");
-  loading.className = "hide-loading";
+  loading.className = LOADING;
 
   const word = " hide ";
   for (const ch of Array.from(word)) {
     const span = document.createElement("span");
-    span.className = "hide-loading-char";
+    span.className = LOADING_CHAR;
     span.textContent = ch;
     loading.appendChild(span);
   }
 
   overlay.appendChild(loading);
   document.body.appendChild(overlay);
-  const chars = Array.from(overlay.querySelectorAll(".hide-loading-char"));
+
+  const chars = Array.from(overlay.querySelectorAll(`.${LOADING_CHAR}`));
   const perCharDelay = 0.12;
   const extra = 0.6;
   const totalDuration = chars.length * perCharDelay + extra;
@@ -83,11 +77,24 @@ function showOverlay() {
 }
 
 function removeOverlay() {
-  const overlay = document.getElementById("hide-overlay");
+  const overlay = document.getElementById(OVERLAY);
   if (overlay) overlay.remove();
 }
 
 async function runPrompt(topic, sentences) {
+  const promptTemplate = `
+For each sentence below, does it discuss the topic "{topic}" in any context?
+Return a JSON array of booleans, one for each sentence, in the same order.
+Sentences:
+{sentences}
+`;
+  const schema = {
+    type: "array",
+    items: { type: "boolean" },
+    description:
+      "Array of booleans indicating if each sentence contains the topic.",
+  };
+
   if (!("LanguageModel" in self)) {
     console.log("LanguageModel not available");
     return [];
@@ -96,11 +103,11 @@ async function runPrompt(topic, sentences) {
     if (!session) {
       session = await LanguageModel.create();
     }
-    const prompt = PROMPT
+    const prompt = promptTemplate
       .replace("{topic}", topic)
       .replace("{sentences}", JSON.stringify(sentences));
     const result = await session.prompt(prompt, {
-      responseConstraint: SCHEMA,
+      responseConstraint: schema,
     });
     return JSON.parse(result);
   } catch (e) {
@@ -118,9 +125,9 @@ async function reset() {
 }
 
 function splitIntoSentences(text) {
-  if ('Segmenter' in Intl) {
-    const segmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
-    return Array.from(segmenter.segment(text), s => s.segment);
+  if ("Segmenter" in Intl) {
+    const segmenter = new Intl.Segmenter("en", { granularity: "sentence" });
+    return Array.from(segmenter.segment(text), (s) => s.segment);
   }
   return text.match(/[^\.!\?]+[\.!\?]+/g) || [text];
 }
@@ -148,7 +155,7 @@ async function hideTopic(topic) {
         if (results[i] === true) {
           const span = document.createElement("span");
           span.textContent = sentences[i];
-          span.classList.add("hide-extension-blackout");
+          span.classList.add(BLACKOUT);
           fragments.push(span);
           censored = true;
         } else {
@@ -158,7 +165,7 @@ async function hideTopic(topic) {
       if (censored) {
         const parent = node.parentNode;
         if (!parent) continue;
-        fragments.forEach(frag => parent.insertBefore(frag, node));
+        fragments.forEach((frag) => parent.insertBefore(frag, node));
         parent.removeChild(node);
       }
     }
@@ -171,9 +178,7 @@ async function hideTopic(topic) {
 function unhideAll() {
   removeOverlay();
 
-  const hidden = Array.from(
-    document.querySelectorAll(".hide-extension-blackout")
-  );
+  const hidden = Array.from(document.querySelectorAll(`.${BLACKOUT}`));
 
   if (hidden.length === 0) return;
 
@@ -210,10 +215,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.action === "queryState") {
-    const hasHiddenContent = !!document.querySelectorAll(
-      ".hide-extension-blackout"
-    ).length;
-    const overlayPresent = !!document.getElementById("hide-overlay");
+    const hasHiddenContent = !!document.querySelectorAll(`.${BLACKOUT}`)
+      .length;
+    const overlayPresent = !!document.getElementById(OVERLAY);
     sendResponse({ hasHiddenContent, overlayPresent });
     return;
   }

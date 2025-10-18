@@ -44,8 +44,8 @@ Hide uses a popup to collect user input
 - [x] accept free text input from user
 - [x] use [Prompt API](https://developer.chrome.com/docs/ai/prompt-api) to understand context
 - [x] hide sentences only if summary matches context
-- [ ] improve keyword generation
-- [ ] improve text chunking
+- [x] improve keyword generation
+- [x] improve text chunking
 - [ ] add logo to popup
 - [x] add dynamic loading indicator to overlay
 - [ ] use rollup
