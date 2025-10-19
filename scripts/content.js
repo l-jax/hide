@@ -86,7 +86,7 @@ async function runPrompt(topic, sentences) {
 For each sentence below, does it discuss the topic "${topic}" in any context?
 Return a JSON array of the indices of sentences that discuss the topic.
 Sentences:
-${JSON.stringify(sentences.map(s => s.text))}
+${JSON.stringify(sentences.map((s) => s.text))}
   `;
 
   const schema = {
@@ -121,7 +121,7 @@ async function reset() {
   session = null;
 }
 
-function splitIntoSentencesWithIndices(text) {
+function splitIntoSentences(text, contextSize = 1) {
   const normalized = text.replace(/\s+/g, " ").trim();
   const segmenter = new Intl.Segmenter("en", { granularity: "sentence" });
   let index = 0;
@@ -132,7 +132,57 @@ function splitIntoSentencesWithIndices(text) {
     sentences.push({ text: segment, start, end });
     index = end;
   }
-  return sentences;
+
+  return sentences.map((sentence, i) => {
+    const context = sentences.slice(
+      Math.max(0, i - contextSize),
+      Math.min(sentences.length, i + contextSize + 1)
+    );
+    return {
+      ...sentence,
+      context: context.map((s) => s.text).join(" "),
+    };
+  });
+}
+
+async function runPrompt(topic, sentences) {
+  const prompt = `
+For each sentence below, does it discuss the topic "${topic}"?
+The sentence under test is provided along with its surrounding context.
+Return a JSON array of the indices of sentences that discuss the topic.
+
+${sentences
+  .map(
+    (s, i) => `Sentence ${i}:
+Sentence under test: ${s.text}
+Context: ${s.context}`
+  )
+  .join("\n\n")}
+  `;
+
+  const schema = {
+    type: "array",
+    items: { type: "integer" },
+    description: "Indices of sentences that discuss the topic.",
+  };
+
+  if (!("LanguageModel" in self)) {
+    console.log("LanguageModel not available");
+    return [];
+  }
+  try {
+    if (!session) {
+      session = await LanguageModel.create();
+    }
+    const result = await session.prompt(prompt, {
+      responseConstraint: schema,
+    });
+    return JSON.parse(result);
+  } catch (e) {
+    console.log("Prompt failed", e);
+    reset();
+    throw e;
+  }
 }
 
 async function hideTopic(topic) {
@@ -148,7 +198,7 @@ async function hideTopic(topic) {
   try {
     for (const node of nodes) {
       const originalText = node.nodeValue;
-      const sentences = splitIntoSentencesWithIndices(originalText);
+      const sentences = splitIntoSentences(originalText);
       if (sentences.length === 0) continue;
 
       const results = await runPrompt(topic, sentences);
