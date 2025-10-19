@@ -8,21 +8,23 @@
     <link rel="stylesheet" href="../style.css" />
   </head>
   <body class="hide-popup-body">
+    <header class="hide-popup-header">
+      <h1>hide</h1>
+    </header>
     <form id="topicForm">
       <input
         type="text"
         id="topic"
-        placeholder="What do you want to hide?"
+        placeholder="describe the content you don't want to see"
         required
       />
-      <div>
-        <button type="submit">Hide</button>
-        <button id="undoBtn" type="button">Undo</button>
+      <div class="hide-button-group">
+        <button id="undoBtn" type="button">undo</button>
       </div>
     </form>
-    <div>
-      <small id="selHint"></small>
-    </div>
+    <footer class="hide-popup-footer">
+      <small id="selHint">what do you want to hide?</small>
+    </footer>
     <script src="popup.js"></script>
   </body>
 </html>

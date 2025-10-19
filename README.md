@@ -46,7 +46,7 @@ Hide uses a popup to collect user input
 - [x] hide sentences only if summary matches context
 - [x] improve keyword generation
 - [x] improve text chunking
-- [ ] add logo to popup
+- [x] add logo to popup
 - [x] add dynamic loading indicator to overlay
 - [ ] use rollup
 - [x] add an undo button
