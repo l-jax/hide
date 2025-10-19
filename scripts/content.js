@@ -83,10 +83,17 @@ function removeOverlay() {
 
 async function runPrompt(topic, sentences) {
   const prompt = `
-For each sentence below, does it discuss the topic "${topic}" in any context?
+For each sentence below, determine if it discusses the topic "${topic}".
+Focus primarily on the "Sentence under test." Use the "Context" only to clarify ambiguous cases.
 Return a JSON array of the indices of sentences that discuss the topic.
-Sentences:
-${JSON.stringify(sentences.map((s) => s.text))}
+
+${sentences
+  .map(
+    (s, i) => `Sentence ${i}:
+Sentence under test: ${s.text}
+Context: ${s.context}`
+  )
+  .join("\n\n")}
   `;
 
   const schema = {
@@ -143,46 +150,6 @@ function splitIntoSentences(text, contextSize = 1) {
       context: context.map((s) => s.text).join(" "),
     };
   });
-}
-
-async function runPrompt(topic, sentences) {
-  const prompt = `
-For each sentence below, does it discuss the topic "${topic}"?
-The sentence under test is provided along with its surrounding context.
-Return a JSON array of the indices of sentences that discuss the topic.
-
-${sentences
-  .map(
-    (s, i) => `Sentence ${i}:
-Sentence under test: ${s.text}
-Context: ${s.context}`
-  )
-  .join("\n\n")}
-  `;
-
-  const schema = {
-    type: "array",
-    items: { type: "integer" },
-    description: "Indices of sentences that discuss the topic.",
-  };
-
-  if (!("LanguageModel" in self)) {
-    console.log("LanguageModel not available");
-    return [];
-  }
-  try {
-    if (!session) {
-      session = await LanguageModel.create();
-    }
-    const result = await session.prompt(prompt, {
-      responseConstraint: schema,
-    });
-    return JSON.parse(result);
-  } catch (e) {
-    console.log("Prompt failed", e);
-    reset();
-    throw e;
-  }
 }
 
 async function hideTopic(topic) {
