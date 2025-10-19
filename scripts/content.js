@@ -13,6 +13,7 @@ const LOADING_CHAR = "hide-loading-char";
 const DATA_ORIGINAL = "hide-data-original";
 
 let session;
+let isCancelled = false;
 
 function isIgnoredNode(parent) {
   return !parent || IGNORED_NODES.has(parent.nodeName);
@@ -154,6 +155,7 @@ function splitIntoSentences(text, contextSize = 1) {
 }
 
 async function hideTopic(topic) {
+  isCancelled = false;
   if (!topic || typeof topic !== "string" || !topic.trim()) {
     console.error("Invalid topic provided", topic);
     return;
@@ -172,12 +174,16 @@ async function hideTopic(topic) {
     const fragment = document.createDocumentFragment();
 
     for (const node of nodes) {
+      if (isCancelled) break;
+
       try {
         const originalText = node.nodeValue;
         const sentences = splitIntoSentences(originalText);
         if (sentences.length === 0) continue;
 
         const results = await runPrompt(topic, sentences);
+        if (isCancelled) break;
+
         const censoredIndices = new Set(results);
 
         let censored = false;
@@ -215,12 +221,12 @@ async function hideTopic(topic) {
 }
 
 function unhideAll() {
+  isCancelled = true;
   removeOverlay();
 
   const hidden = Array.from(document.querySelectorAll(`.${BLACKOUT}`));
 
   if (hidden.length === 0) {
-    console.warn("No hidden content to restore");
     return;
   }
 
