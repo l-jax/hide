@@ -10,6 +10,7 @@ const OVERLAY = "hide-overlay";
 const BLACKOUT = "hide-extension-blackout";
 const LOADING = "hide-loading";
 const LOADING_CHAR = "hide-loading-char";
+const DATA_ORIGINAL = "hide-data-original";
 
 let session;
 
@@ -163,6 +164,8 @@ async function hideTopic(topic) {
   showOverlay();
 
   try {
+    const fragment = document.createDocumentFragment();
+
     for (const node of nodes) {
       const originalText = node.nodeValue;
       const sentences = splitIntoSentences(originalText);
@@ -178,6 +181,7 @@ async function hideTopic(topic) {
           const span = document.createElement("span");
           span.textContent = s.text;
           span.classList.add(BLACKOUT);
+          span.setAttribute(DATA_ORIGINAL, s.text);
           fragments.push(span);
           censored = true;
         } else {
@@ -188,8 +192,9 @@ async function hideTopic(topic) {
       if (censored) {
         const parent = node.parentNode;
         if (!parent) continue;
-        fragments.forEach((frag) => parent.insertBefore(frag, node));
-        parent.removeChild(node);
+
+        fragments.forEach((frag) => fragment.appendChild(frag));
+        parent.replaceChild(fragment, node);
       }
     }
   } finally {
@@ -205,11 +210,18 @@ function unhideAll() {
 
   if (hidden.length === 0) return;
 
+  const fragment = document.createDocumentFragment();
+
   for (const element of hidden) {
     const parent = element.parentNode;
     if (!parent) continue;
-    const text = document.createTextNode(element.textContent || "");
-    parent.replaceChild(text, element);
+
+    const originalText = element.getAttribute(DATA_ORIGINAL);
+    if (originalText !== null) {
+      const textNode = document.createTextNode(originalText);
+      fragment.appendChild(textNode);
+      parent.replaceChild(fragment, element);
+    }
   }
 
   try {
@@ -221,11 +233,9 @@ function unhideAll() {
   }
 
   reset();
-  console.log("Restored hidden content");
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  console.log("Content script received message:", msg);
   if (!msg || !msg.action) return;
   if (msg.action === "hideTopic" && typeof msg.topic === "string") {
     hideTopic(msg.topic);
