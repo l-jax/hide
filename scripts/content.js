@@ -82,17 +82,17 @@ function removeOverlay() {
 }
 
 async function runPrompt(topic, sentences) {
-  const promptTemplate = `
-For each sentence below, does it discuss the topic "{topic}" in any context?
-Return a JSON array of booleans, one for each sentence, in the same order.
+  const prompt = `
+For each sentence below, does it discuss the topic "${topic}" in any context?
+Return a JSON array of the indices of sentences that discuss the topic.
 Sentences:
-{sentences}
-`;
+${JSON.stringify(sentences.map(s => s.text))}
+  `;
+
   const schema = {
     type: "array",
-    items: { type: "boolean" },
-    description:
-      "Array of booleans indicating if each sentence contains the topic.",
+    items: { type: "integer" },
+    description: "Indices of sentences that discuss the topic.",
   };
 
   if (!("LanguageModel" in self)) {
@@ -103,9 +103,6 @@ Sentences:
     if (!session) {
       session = await LanguageModel.create();
     }
-    const prompt = promptTemplate
-      .replace("{topic}", topic)
-      .replace("{sentences}", JSON.stringify(sentences));
     const result = await session.prompt(prompt, {
       responseConstraint: schema,
     });
@@ -124,12 +121,18 @@ async function reset() {
   session = null;
 }
 
-function splitIntoSentences(text) {
-  if ("Segmenter" in Intl) {
-    const segmenter = new Intl.Segmenter("en", { granularity: "sentence" });
-    return Array.from(segmenter.segment(text), (s) => s.segment);
+function splitIntoSentencesWithIndices(text) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const segmenter = new Intl.Segmenter("en", { granularity: "sentence" });
+  let index = 0;
+  const sentences = [];
+  for (const { segment } of segmenter.segment(normalized)) {
+    const start = normalized.indexOf(segment, index);
+    const end = start + segment.length;
+    sentences.push({ text: segment, start, end });
+    index = end;
   }
-  return text.match(/[^\.!\?]+[\.!\?]+/g) || [text];
+  return sentences;
 }
 
 async function hideTopic(topic) {
@@ -144,24 +147,27 @@ async function hideTopic(topic) {
 
   try {
     for (const node of nodes) {
-      const sentences = splitIntoSentences(node.nodeValue);
+      const originalText = node.nodeValue;
+      const sentences = splitIntoSentencesWithIndices(originalText);
       if (sentences.length === 0) continue;
 
       const results = await runPrompt(topic, sentences);
+      const censoredIndices = new Set(results);
 
       let censored = false;
       const fragments = [];
-      for (let i = 0; i < sentences.length; i++) {
-        if (results[i] === true) {
+      sentences.forEach((s, i) => {
+        if (censoredIndices.has(i)) {
           const span = document.createElement("span");
-          span.textContent = sentences[i];
+          span.textContent = s.text;
           span.classList.add(BLACKOUT);
           fragments.push(span);
           censored = true;
         } else {
-          fragments.push(document.createTextNode(sentences[i]));
+          fragments.push(document.createTextNode(s.text));
         }
-      }
+      });
+
       if (censored) {
         const parent = node.parentNode;
         if (!parent) continue;
@@ -215,8 +221,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.action === "queryState") {
-    const hasHiddenContent = !!document.querySelectorAll(`.${BLACKOUT}`)
-      .length;
+    const hasHiddenContent = !!document.querySelectorAll(`.${BLACKOUT}`).length;
     const overlayPresent = !!document.getElementById(OVERLAY);
     sendResponse({ hasHiddenContent, overlayPresent });
     return;
