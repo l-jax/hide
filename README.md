@@ -52,3 +52,7 @@ Hide uses a popup to collect user input
 - [x] add an undo button
 - [x] add a cancel button
 - [x] close popup when user submits request
+- [ ] store user input with list of keywords to allow rapid decision on unseen pages
+- [ ] use `<title>` and `<h1>` tags to quickly scan page content
+- [ ] bring overlay across pages whose title and headings match stored keywords
+- [ ] prompt user to run full hide if page may contain content they don't want to see
