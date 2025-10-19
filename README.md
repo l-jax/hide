@@ -48,7 +48,7 @@ Hide uses a popup to collect user input
 - [x] improve text chunking
 - [x] add logo to popup
 - [x] add dynamic loading indicator to overlay
-- [ ] use rollup
+- [x] use rollup
 - [x] add an undo button
 - [x] add a cancel button
 - [x] close popup when user submits request

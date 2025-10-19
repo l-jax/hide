@@ -1,0 +1,21 @@
+
+{
+  "name": "hide",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "main": "popup/popup.js",
+  "scripts": {
+    "build": "rollup -c rollup.config.mjs"
+  },
+  "keywords": [],
+  "license": "MIT",
+  "devDependencies": {
+    "dompurify": "3.2.4",
+    "marked": "14.1.2",
+    "@rollup/plugin-commonjs": "26.0.1",
+    "@rollup/plugin-node-resolve": "15.2.3",
+    "rollup": "4.22.4",
+    "rollup-plugin-copy": "3.5.0"
+  }
+}
