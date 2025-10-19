@@ -89,12 +89,12 @@ Focus primarily on the "Sentence under test." Use the "Context" only to clarify 
 Return a JSON array of the indices of sentences that discuss the topic.
 
 ${sentences
-  .map(
-    (s, i) => `Sentence ${i}:
+    .map(
+      (s, i) => `Sentence ${i}:
 Sentence under test: ${s.text}
 Context: ${s.context}`
-  )
-  .join("\n\n")}
+    )
+    .join("\n\n")}
   `;
 
   const schema = {
@@ -104,7 +104,7 @@ Context: ${s.context}`
   };
 
   if (!("LanguageModel" in self)) {
-    console.log("LanguageModel not available");
+    console.error("LanguageModel not available");
     return [];
   }
   try {
@@ -116,9 +116,9 @@ Context: ${s.context}`
     });
     return JSON.parse(result);
   } catch (e) {
-    console.log("Prompt failed", e);
+    console.error("Error processing prompt", prompt, e);
     reset();
-    throw e;
+    return [];
   }
 }
 
@@ -154,12 +154,17 @@ function splitIntoSentences(text, contextSize = 1) {
 }
 
 async function hideTopic(topic) {
-  if (!topic || typeof topic !== "string" || !topic.trim()) return;
+  if (!topic || typeof topic !== "string" || !topic.trim()) {
+    console.error("Invalid topic provided", topic);
+    return;
+  }
   console.log("Hiding topic:", topic);
 
   const nodes = collectTextNodes();
-  if (nodes.length === 0) return;
-  console.log(`Collected ${nodes.length} text nodes`);
+  if (nodes.length === 0) {
+    console.warn("No text nodes found to process");
+    return;
+  }
 
   showOverlay();
 
@@ -167,36 +172,42 @@ async function hideTopic(topic) {
     const fragment = document.createDocumentFragment();
 
     for (const node of nodes) {
-      const originalText = node.nodeValue;
-      const sentences = splitIntoSentences(originalText);
-      if (sentences.length === 0) continue;
+      try {
+        const originalText = node.nodeValue;
+        const sentences = splitIntoSentences(originalText);
+        if (sentences.length === 0) continue;
 
-      const results = await runPrompt(topic, sentences);
-      const censoredIndices = new Set(results);
+        const results = await runPrompt(topic, sentences);
+        const censoredIndices = new Set(results);
 
-      let censored = false;
-      const fragments = [];
-      sentences.forEach((s, i) => {
-        if (censoredIndices.has(i)) {
-          const span = document.createElement("span");
-          span.textContent = s.text;
-          span.classList.add(BLACKOUT);
-          span.setAttribute(DATA_ORIGINAL, s.text);
-          fragments.push(span);
-          censored = true;
-        } else {
-          fragments.push(document.createTextNode(s.text));
+        let censored = false;
+        const fragments = [];
+        sentences.forEach((s, i) => {
+          if (censoredIndices.has(i)) {
+            const span = document.createElement("span");
+            span.textContent = s.text;
+            span.classList.add(BLACKOUT);
+            span.setAttribute(DATA_ORIGINAL, s.text);
+            fragments.push(span);
+            censored = true;
+          } else {
+            fragments.push(document.createTextNode(s.text));
+          }
+        });
+
+        if (censored) {
+          const parent = node.parentNode;
+          if (!parent) continue;
+
+          fragments.forEach((frag) => fragment.appendChild(frag));
+          parent.replaceChild(fragment, node);
         }
-      });
-
-      if (censored) {
-        const parent = node.parentNode;
-        if (!parent) continue;
-
-        fragments.forEach((frag) => fragment.appendChild(frag));
-        parent.replaceChild(fragment, node);
+      } catch (nodeError) {
+        console.error("Error processing node", node, nodeError);
       }
     }
+  } catch (e) {
+    console.error("Error hiding topic", topic, e);
   } finally {
     removeOverlay();
     reset();
@@ -208,19 +219,26 @@ function unhideAll() {
 
   const hidden = Array.from(document.querySelectorAll(`.${BLACKOUT}`));
 
-  if (hidden.length === 0) return;
+  if (hidden.length === 0) {
+    console.warn("No hidden content to restore");
+    return;
+  }
 
   const fragment = document.createDocumentFragment();
 
   for (const element of hidden) {
-    const parent = element.parentNode;
-    if (!parent) continue;
+    try {
+      const parent = element.parentNode;
+      if (!parent) continue;
 
-    const originalText = element.getAttribute(DATA_ORIGINAL);
-    if (originalText !== null) {
-      const textNode = document.createTextNode(originalText);
-      fragment.appendChild(textNode);
-      parent.replaceChild(fragment, element);
+      const originalText = element.getAttribute(DATA_ORIGINAL);
+      if (originalText !== null) {
+        const textNode = document.createTextNode(originalText);
+        fragment.appendChild(textNode);
+        parent.replaceChild(fragment, element);
+      }
+    } catch (restoreError) {
+      console.error("Error restoring element", element, restoreError);
     }
   }
 
@@ -229,7 +247,7 @@ function unhideAll() {
       document.body.normalize();
     }
   } catch (e) {
-    console.warn("normalize failed", e);
+    console.warn("Error normalizing document body", e);
   }
 
   reset();
