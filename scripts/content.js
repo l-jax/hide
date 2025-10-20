@@ -119,7 +119,8 @@ function showOverlay(action = "hidingInProgress", message = "") {
 
     // Explanation message
     const explanation = document.createElement("p");
-    explanation.textContent = message || "Keywords detected. What would you like to do?";
+    explanation.textContent =
+      message || "Keywords detected. What would you like to do?";
     explanation.style.marginTop = "20px";
     explanation.style.textAlign = "center";
     overlay.appendChild(explanation);
@@ -336,7 +337,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg.action === "hideTopic" && typeof msg.topic === "string") {
     hideTopic(msg.topic);
-    return;
+    chrome.runtime.sendMessage(msg, (response) => {
+      sendResponse(response);
+    });
+    return true;
   }
 
   if (msg.action === "undo") {
@@ -345,7 +349,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.action === "keywordsDetected") {
-    showOverlay("keywordsDetected", "Keywords detected on this page. You can choose to hide the content, close the tab, or remove the overlay.");
+    showOverlay(
+      "keywordsDetected",
+      "Keywords detected on this page. You can choose to hide the content, close the tab, or remove the overlay."
+    );
     return;
   }
 
