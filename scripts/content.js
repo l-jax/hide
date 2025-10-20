@@ -149,12 +149,12 @@ Focus primarily on the "Sentence under test." Use the "Context" only to clarify 
 Return a JSON array of the indices of sentences that discuss the topic.
 
 ${sentences
-    .map(
-      (s, i) => `Sentence ${i}:
+  .map(
+    (s, i) => `Sentence ${i}:
 Sentence under test: ${s.text}
 Context: ${s.context}`
-    )
-    .join("\n\n")}
+  )
+  .join("\n\n")}
   `;
 }
 
@@ -275,7 +275,6 @@ function unhideAll() {
   reset();
 }
 
-
 /* Event listeners */
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -288,6 +287,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === "undo") {
     unhideAll();
     return;
+  }
+
+  if (msg.action === "keywordsDetected") {
+    // TODO: update UI to indicate keywords detected
+    // allow user to to proceed with content hiding, close tab, or remove overlay
+    showOverlay();
   }
 
   if (msg.action === "queryState") {
