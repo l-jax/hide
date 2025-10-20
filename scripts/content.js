@@ -15,6 +15,8 @@ const DATA_ORIGINAL = "hide-data-original";
 let session;
 let isCancelled = false;
 
+/* Text processing */
+
 function isIgnoredNode(parent) {
   return !parent || IGNORED_NODES.has(parent.nodeName);
 }
@@ -34,6 +36,32 @@ function collectTextNodes(root = document.body) {
   while ((nd = walker.nextNode())) nodes.push(nd);
   return nodes;
 }
+
+function splitIntoSentences(text, contextSize = 1) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const segmenter = new Intl.Segmenter("en", { granularity: "sentence" });
+  let index = 0;
+  const sentences = [];
+  for (const { segment } of segmenter.segment(normalized)) {
+    const start = normalized.indexOf(segment, index);
+    const end = start + segment.length;
+    sentences.push({ text: segment, start, end });
+    index = end;
+  }
+
+  return sentences.map((sentence, i) => {
+    const context = sentences.slice(
+      Math.max(0, i - contextSize),
+      Math.min(sentences.length, i + contextSize + 1)
+    );
+    return {
+      ...sentence,
+      context: context.map((s) => s.text).join(" "),
+    };
+  });
+}
+
+/* Overlay */
 
 function injectContentStylesheet() {
   if (document.getElementById(CSS)) return;
@@ -83,27 +111,9 @@ function removeOverlay() {
   if (overlay) overlay.remove();
 }
 
-async function runPrompt(topic, sentences) {
-  const prompt = `
-For each sentence below, determine if it discusses the topic "${topic}".
-Focus primarily on the "Sentence under test." Use the "Context" only to clarify ambiguous cases.
-Return a JSON array of the indices of sentences that discuss the topic.
+/* Language model */
 
-${sentences
-    .map(
-      (s, i) => `Sentence ${i}:
-Sentence under test: ${s.text}
-Context: ${s.context}`
-    )
-    .join("\n\n")}
-  `;
-
-  const schema = {
-    type: "array",
-    items: { type: "integer" },
-    description: "Indices of sentences that discuss the topic.",
-  };
-
+async function runPrompt(prompt, schema) {
   if (!("LanguageModel" in self)) {
     console.error("LanguageModel not available");
     return [];
@@ -130,28 +140,74 @@ async function reset() {
   session = null;
 }
 
-function splitIntoSentences(text, contextSize = 1) {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  const segmenter = new Intl.Segmenter("en", { granularity: "sentence" });
-  let index = 0;
-  const sentences = [];
-  for (const { segment } of segmenter.segment(normalized)) {
-    const start = normalized.indexOf(segment, index);
-    const end = start + segment.length;
-    sentences.push({ text: segment, start, end });
-    index = end;
-  }
+/* Text censorship */
 
-  return sentences.map((sentence, i) => {
-    const context = sentences.slice(
-      Math.max(0, i - contextSize),
-      Math.min(sentences.length, i + contextSize + 1)
-    );
-    return {
-      ...sentence,
-      context: context.map((s) => s.text).join(" "),
+function buildPrompt(sentences, topic) {
+  return `
+For each sentence below, determine if it discusses the topic "${topic}".
+Focus primarily on the "Sentence under test." Use the "Context" only to clarify ambiguous cases.
+Return a JSON array of the indices of sentences that discuss the topic.
+
+${sentences
+    .map(
+      (s, i) => `Sentence ${i}:
+Sentence under test: ${s.text}
+Context: ${s.context}`
+    )
+    .join("\n\n")}
+  `;
+}
+
+async function processTextNode(node, topic, fragment) {
+  try {
+    const originalText = node.nodeValue;
+    const sentences = splitIntoSentences(originalText);
+    if (sentences.length === 0) return;
+
+    const prompt = buildPrompt(sentences, topic);
+    const schema = {
+      type: "array",
+      items: { type: "integer" },
+      description: "Indices of sentences that discuss the topic.",
     };
-  });
+
+    const results = await runPrompt(prompt, schema);
+    const censoredIndices = new Set(results);
+
+    let censored = false;
+    const fragments = [];
+    sentences.forEach((s, i) => {
+      if (censoredIndices.has(i)) {
+        const span = document.createElement("span");
+        span.textContent = s.text;
+        span.classList.add(BLACKOUT);
+        span.setAttribute(DATA_ORIGINAL, s.text);
+        fragments.push(span);
+        censored = true;
+      } else {
+        fragments.push(document.createTextNode(s.text));
+      }
+    });
+
+    if (censored) {
+      const parent = node.parentNode;
+      if (!parent) return;
+
+      fragments.forEach((frag) => fragment.appendChild(frag));
+      parent.replaceChild(fragment, node);
+    }
+  } catch (error) {
+    console.error("Error processing text node", node, error);
+  }
+}
+
+async function processTextNodes(nodes, topic) {
+  const fragment = document.createDocumentFragment();
+
+  for (const node of nodes) {
+    if (isCancelled) break;
+    await processTextNode(node, topic, fragment);
+  }
 }
 
 async function hideTopic(topic) {
@@ -171,49 +227,9 @@ async function hideTopic(topic) {
   showOverlay();
 
   try {
-    const fragment = document.createDocumentFragment();
-
-    for (const node of nodes) {
-      if (isCancelled) break;
-
-      try {
-        const originalText = node.nodeValue;
-        const sentences = splitIntoSentences(originalText);
-        if (sentences.length === 0) continue;
-
-        const results = await runPrompt(topic, sentences);
-        if (isCancelled) break;
-
-        const censoredIndices = new Set(results);
-
-        let censored = false;
-        const fragments = [];
-        sentences.forEach((s, i) => {
-          if (censoredIndices.has(i)) {
-            const span = document.createElement("span");
-            span.textContent = s.text;
-            span.classList.add(BLACKOUT);
-            span.setAttribute(DATA_ORIGINAL, s.text);
-            fragments.push(span);
-            censored = true;
-          } else {
-            fragments.push(document.createTextNode(s.text));
-          }
-        });
-
-        if (censored) {
-          const parent = node.parentNode;
-          if (!parent) continue;
-
-          fragments.forEach((frag) => fragment.appendChild(frag));
-          parent.replaceChild(fragment, node);
-        }
-      } catch (nodeError) {
-        console.error("Error processing node", node, nodeError);
-      }
-    }
-  } catch (e) {
-    console.error("Error hiding topic", topic, e);
+    await processTextNodes(nodes, topic);
+  } catch (error) {
+    console.error("Error hiding topic", topic, error);
   } finally {
     removeOverlay();
     reset();
@@ -258,6 +274,9 @@ function unhideAll() {
 
   reset();
 }
+
+
+/* Event listeners */
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || !msg.action) return;
