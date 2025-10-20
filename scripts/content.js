@@ -73,37 +73,91 @@ function injectContentStylesheet() {
   document.head.appendChild(link);
 }
 
-function showOverlay() {
+function showOverlay(action = "hidingInProgress", message = "") {
   injectContentStylesheet();
-  if (document.getElementById(OVERLAY)) return;
+  let overlay = document.getElementById(OVERLAY);
 
-  const overlay = document.createElement("div");
-  overlay.id = OVERLAY;
-  overlay.classList.add(OVERLAY);
-
-  const loading = document.createElement("div");
-  loading.className = LOADING;
-
-  const word = " hide ";
-  for (const ch of Array.from(word)) {
-    const span = document.createElement("span");
-    span.className = LOADING_CHAR;
-    span.textContent = ch;
-    loading.appendChild(span);
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = OVERLAY;
+    overlay.classList.add(OVERLAY);
+    document.body.appendChild(overlay);
   }
 
-  overlay.appendChild(loading);
-  document.body.appendChild(overlay);
+  overlay.innerHTML = ""; // Clear existing content
 
-  const chars = Array.from(overlay.querySelectorAll(`.${LOADING_CHAR}`));
-  const perCharDelay = 0.12;
-  const extra = 0.6;
-  const totalDuration = chars.length * perCharDelay + extra;
-  loading.classList.add("animate");
-  chars.forEach((c, i) => {
-    c.style.animationDelay = `${i * perCharDelay}s`;
-    c.style.animationDuration = `${totalDuration}s`;
-  });
+  if (action === "hidingInProgress") {
+    // Existing loading animation
+    const loading = document.createElement("div");
+    loading.className = LOADING;
+
+    const word = " hide ";
+    for (const ch of Array.from(word)) {
+      const span = document.createElement("span");
+      span.className = LOADING_CHAR;
+      span.textContent = ch;
+      loading.appendChild(span);
+    }
+
+    overlay.appendChild(loading);
+
+    const chars = Array.from(overlay.querySelectorAll(`.${LOADING_CHAR}`));
+    const perCharDelay = 0.12;
+    const extra = 0.6;
+    const totalDuration = chars.length * perCharDelay + extra;
+    loading.classList.add("animate");
+    chars.forEach((c, i) => {
+      c.style.animationDelay = `${i * perCharDelay}s`;
+      c.style.animationDuration = `${totalDuration}s`;
+    });
+  } else if (action === "keywordsDetected") {
+    // Static loading text
+    const loadingText = document.createElement("div");
+    loadingText.className = LOADING;
+    loadingText.textContent = " hide ";
+    overlay.appendChild(loadingText);
+
+    // Explanation message
+    const explanation = document.createElement("p");
+    explanation.textContent = message || "Keywords detected. What would you like to do?";
+    explanation.style.marginTop = "20px";
+    explanation.style.textAlign = "center";
+    overlay.appendChild(explanation);
+
+    // Options
+    const options = document.createElement("div");
+    options.style.display = "flex";
+    options.style.justifyContent = "center";
+    options.style.gap = "10px";
+    options.style.marginTop = "20px";
+
+    // "Hide Content" button
+    const hideButton = document.createElement("button");
+    hideButton.textContent = "Hide Content";
+    hideButton.addEventListener("click", () => {
+      chrome.runtime.sendMessage({ action: "hideTopic", topic: "detected" });
+      removeOverlay();
+    });
+    options.appendChild(hideButton);
+
+    // "Close Tab" button
+    const closeButton = document.createElement("button");
+    closeButton.textContent = "Close Tab";
+    closeButton.addEventListener("click", () => {
+      chrome.runtime.sendMessage({ action: "closeTab" });
+    });
+    options.appendChild(closeButton);
+
+    // "Remove Overlay" button
+    const removeButton = document.createElement("button");
+    removeButton.textContent = "Remove Overlay";
+    removeButton.addEventListener("click", () => {
+      removeOverlay();
+    });
+    options.appendChild(removeButton);
+
+    overlay.appendChild(options);
+  }
 }
 
 function removeOverlay() {
@@ -279,6 +333,7 @@ function unhideAll() {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || !msg.action) return;
+
   if (msg.action === "hideTopic" && typeof msg.topic === "string") {
     hideTopic(msg.topic);
     return;
@@ -290,9 +345,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.action === "keywordsDetected") {
-    // TODO: update UI to indicate keywords detected
-    // allow user to to proceed with content hiding, close tab, or remove overlay
-    showOverlay();
+    showOverlay("keywordsDetected", "Keywords detected on this page. You can choose to hide the content, close the tab, or remove the overlay.");
+    return;
   }
 
   if (msg.action === "queryState") {
