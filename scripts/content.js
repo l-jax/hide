@@ -12,7 +12,6 @@ const LOADING = "hide-loading";
 const LOADING_CHAR = "hide-loading-char";
 const DATA_ORIGINAL = "hide-data-original";
 
-let session;
 let isCancelled = false;
 
 /* Text processing */
@@ -21,9 +20,9 @@ function isIgnoredNode(parent) {
   return !parent || IGNORED_NODES.has(parent.nodeName);
 }
 
-function collectTextNodes(root = document.body) {
+function collectTextNodes() {
   const nodes = [];
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
     acceptNode: (node) => {
       const parent = node.parentNode;
       if (!parent || isIgnoredNode(parent)) return NodeFilter.FILTER_REJECT;
@@ -35,30 +34,6 @@ function collectTextNodes(root = document.body) {
   let nd;
   while ((nd = walker.nextNode())) nodes.push(nd);
   return nodes;
-}
-
-function splitIntoSentences(text, contextSize = 1) {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  const segmenter = new Intl.Segmenter("en", { granularity: "sentence" });
-  let index = 0;
-  const sentences = [];
-  for (const { segment } of segmenter.segment(normalized)) {
-    const start = normalized.indexOf(segment, index);
-    const end = start + segment.length;
-    sentences.push({ text: segment, start, end });
-    index = end;
-  }
-
-  return sentences.map((sentence, i) => {
-    const context = sentences.slice(
-      Math.max(0, i - contextSize),
-      Math.min(sentences.length, i + contextSize + 1)
-    );
-    return {
-      ...sentence,
-      context: context.map((s) => s.text).join(" "),
-    };
-  });
 }
 
 /* Overlay */
@@ -166,73 +141,31 @@ function removeOverlay() {
   if (overlay) overlay.remove();
 }
 
-/* Language model */
-
-async function runPrompt(prompt, schema) {
-  if (!("LanguageModel" in self)) {
-    console.error("LanguageModel not available");
-    return [];
-  }
-  try {
-    if (!session) {
-      session = await LanguageModel.create();
-    }
-    const result = await session.prompt(prompt, {
-      responseConstraint: schema,
-    });
-    return JSON.parse(result);
-  } catch (e) {
-    console.error("Error processing prompt", prompt, e);
-    reset();
-    return [];
-  }
-}
-
-async function reset() {
-  if (session) {
-    session.destroy();
-  }
-  session = null;
-}
-
-/* Text censorship */
-
-function buildPrompt(sentences, topic) {
-  return `
-For each sentence below, determine if it discusses the topic "${topic}".
-Focus primarily on the "Sentence under test." Use the "Context" only to clarify ambiguous cases.
-Return a JSON array of the indices of sentences that discuss the topic.
-
-${sentences
-  .map(
-    (s, i) => `Sentence ${i}:
-Sentence under test: ${s.text}
-Context: ${s.context}`
-  )
-  .join("\n\n")}
-  `;
-}
-
 async function processTextNode(node, topic, fragment) {
   try {
-    const originalText = node.nodeValue;
-    const sentences = splitIntoSentences(originalText);
-    if (sentences.length === 0) return;
+    const response = await chrome.runtime.sendMessage({
+      action: "censorText",
+      text: node.nodeValue,
+      topic: topic,
+    });
 
-    const prompt = buildPrompt(sentences, topic);
-    const schema = {
-      type: "array",
-      items: { type: "integer" },
-      description: "Indices of sentences that discuss the topic.",
-    };
+    if (!response.success) {
+      console.error("Error from censorText:", response.error);
+      return;
+    }
 
-    const results = await runPrompt(prompt, schema);
-    const censoredIndices = new Set(results);
+    if (!Array.isArray(response.result)) {
+      console.error("Invalid response from censorText:", response.result);
+      return;
+    }
+
+    console.log("Censoring sentences:", response.result);
 
     let censored = false;
     const fragments = [];
-    sentences.forEach((s, i) => {
-      if (censoredIndices.has(i)) {
+
+    response.result.forEach((s) => {
+      if (s.censored) {
         const span = document.createElement("span");
         span.textContent = s.text;
         span.classList.add(BLACKOUT);
@@ -287,7 +220,6 @@ async function hideTopic(topic) {
     console.error("Error hiding topic", topic, error);
   } finally {
     removeOverlay();
-    reset();
   }
 }
 
@@ -326,8 +258,6 @@ function unhideAll() {
   } catch (e) {
     console.warn("Error normalizing document body", e);
   }
-
-  reset();
 }
 
 /* Event listeners */
