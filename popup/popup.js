@@ -1,89 +1,162 @@
-document.addEventListener("DOMContentLoaded", function () {
+/* Constants */
+const HINT_MESSAGES = {
+  default: "what do you want to hide?",
+  readyToHide: "press enter to start hiding",
+  hidingInProgress: "hiding in progress",
+  textHidden: "text hidden",
+};
+
+const ACTIONS = {
+  HIDE_TOPIC: "hideTopic",
+  UNDO: "undo",
+  QUERY_STATE: "queryState",
+  GENERATE_KEYWORDS: "generateKeywords",
+};
+
+/* Utilities */
+
+/**
+ * Updates the hint message displayed in the popup.
+ * @param {string} message - The message to display.
+ */
+function updateHint(message) {
+  const selHint = document.getElementById("selHint");
+  if (selHint) {
+    selHint.textContent = message;
+  }
+}
+
+/**
+ * Toggles the visibility of the topic input field.
+ * @param {boolean} show - Whether to show the input field.
+ */
+function toggleInputVisibility(show) {
+  const topicInput = document.getElementById("topic");
+  if (topicInput) {
+    topicInput.style.display = show ? "" : "none";
+  }
+}
+
+/**
+ * Queries the active tab and executes a callback with the tab object.
+ * @param {Function} callback - The callback to execute with the active tab.
+ */
+function queryActiveTab(callback) {
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    if (tabs && tabs[0]) {
+      callback(tabs[0]);
+    } else {
+      console.error("No active tab found");
+    }
+  });
+}
+
+/**
+ * Sends a message to the content script of the active tab.
+ * @param {Object} tab - The active tab object.
+ * @param {Object} message - The message to send.
+ * @param {Function} [callback] - Optional callback to execute after the message is sent.
+ */
+function sendMessageToTab(tab, message, callback) {
+  chrome.tabs.sendMessage(tab.id, message, function (response) {
+    if (chrome.runtime.lastError) {
+      console.error("Error sending message:", chrome.runtime.lastError.message);
+    }
+    if (callback) callback(response);
+  });
+}
+
+/**
+ * Sends a message to the background script.
+ * @param {Object} message - The message to send.
+ * @param {Function} [callback] - Optional callback to execute after the message is sent.
+ */
+function sendMessageToBackground(message, callback) {
+  console.log("Sending message to background script:", message);
+  chrome.runtime.sendMessage(message, function (response) {
+    if (chrome.runtime.lastError) {
+      console.error(
+        "Error sending message to background script:",
+        chrome.runtime.lastError.message
+      );
+    } else {
+      console.log("Background script response:", response);
+    }
+    if (callback) callback(response);
+  });
+}
+
+/* Event Handlers */
+
+/**
+ * Handles the form submission to hide a topic and generate keywords.
+ */
+function handleFormSubmit() {
   const topicForm = document.getElementById("topicForm");
   const topicInput = document.getElementById("topic");
-  const selHint = document.getElementById("selHint");
-  const undoBtn = document.getElementById("undoBtn");
 
-  const HINT_MESSAGES = {
-    default: "what do you want to hide?",
-    readyToHide: "press enter to start hiding",
-    hidingInProgress: "hiding in progress",
-    textHidden: "text hidden",
-  };
-
-  function updateHint(message) {
-    if (selHint) {
-      selHint.textContent = message;
-    }
-  }
-
-  function queryActiveTab(callback) {
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      if (tabs && tabs[0]) {
-        callback(tabs[0]);
-      } else {
-        console.log("No active tab found");
-      }
-    });
-  }
-
-  function toggleInputVisibility(show) {
-    if (topicInput) {
-      topicInput.style.display = show ? "" : "none";
-    }
-  }
-
-  if (topicInput) {
-    topicInput.addEventListener("input", function () {
-      updateHint(topicInput.value.trim() === "" ? HINT_MESSAGES.default : HINT_MESSAGES.readyToHide);
-    });
-  }
-
-  if (topicForm) {
+  if (topicForm && topicInput) {
     topicForm.addEventListener("submit", function (e) {
       e.preventDefault();
       const topic = topicInput.value.trim();
       if (!topic) return;
 
+      sendMessageToBackground({ action: ACTIONS.GENERATE_KEYWORDS, topic }, () => {
+        console.log("Keyword generation requested for topic:", topic);
+      });
+
       queryActiveTab((tab) => {
-        chrome.tabs.sendMessage(tab.id, { action: "hideTopic", topic }, function () {
+        sendMessageToTab(tab, { action: ACTIONS.HIDE_TOPIC, topic }, () => {
           console.log("Message sent to content script");
         });
+
         updateHint(HINT_MESSAGES.hidingInProgress);
         toggleInputVisibility(false);
         window.close();
       });
     });
   }
+}
 
-  function updateUndoButton() {
-    queryActiveTab((tab) => {
-      chrome.tabs.sendMessage(tab.id, { action: "queryState" }, function (state) {
-        if (!undoBtn) return;
+/**
+ * Updates the undo button based on the current state of the content script.
+ */
+function updateUndoButton() {
+  const undoBtn = document.getElementById("undoBtn");
 
-        if (state && state.overlayPresent) {
-          undoBtn.style.display = "";
-          undoBtn.textContent = "Cancel";
-          updateHint(HINT_MESSAGES.hidingInProgress);
-          toggleInputVisibility(false);
-        } else if (state && state.hasHiddenContent) {
-          undoBtn.style.display = "";
-          undoBtn.textContent = "Undo";
-          updateHint(HINT_MESSAGES.textHidden);
-          toggleInputVisibility(false);
-        } else {
-          undoBtn.style.display = "none";
-          updateHint(HINT_MESSAGES.default);
-          toggleInputVisibility(true);
-        }
-      });
+  queryActiveTab((tab) => {
+    sendMessageToTab(tab, { action: ACTIONS.QUERY_STATE }, (state) => {
+      if (!undoBtn) return;
+
+      if (state && state.overlayPresent) {
+        undoBtn.style.display = "";
+        undoBtn.textContent = "Cancel";
+        updateHint(HINT_MESSAGES.hidingInProgress);
+        toggleInputVisibility(false);
+      } else if (state && state.hasHiddenContent) {
+        undoBtn.style.display = "";
+        undoBtn.textContent = "Undo";
+        updateHint(HINT_MESSAGES.textHidden);
+        toggleInputVisibility(false);
+      } else {
+        undoBtn.style.display = "none";
+        updateHint(HINT_MESSAGES.default);
+        toggleInputVisibility(true);
+      }
     });
-  }
+  });
+}
+
+/**
+ * Handles the undo button click event.
+ */
+function handleUndoButtonClick() {
+  const undoBtn = document.getElementById("undoBtn");
 
   if (undoBtn) {
     undoBtn.addEventListener("click", function () {
       queryActiveTab((tab) => {
-        chrome.tabs.sendMessage(tab.id, { action: "undo" }, function () {
+        sendMessageToTab(tab, { action: ACTIONS.UNDO }, () => {
           updateHint(HINT_MESSAGES.default);
           updateUndoButton();
         });
@@ -91,6 +164,17 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     });
   }
+}
 
+/* Initialization */
+
+/**
+ * Initializes the popup by setting up event listeners and updating the UI.
+ */
+function initializePopup() {
+  handleFormSubmit();
+  handleUndoButtonClick();
   updateUndoButton();
-});
+}
+
+document.addEventListener("DOMContentLoaded", initializePopup);
