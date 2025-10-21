@@ -21,7 +21,24 @@ export async function extractKeywords(topic) {
     return [];
   }
 
-  const prompt = `Generate keywords that could be used in the titles and headings of websites discussing the following topic: ${topic}`;
+  const prompt = `
+**TASK:** Act as an expert Search Analyst. Your task is to generate a concise list of high-impact keywords and phrases that would most likely appear in the **URL slug** or **HTML page title** of a website that focuses on the **SENSITIVE TOPIC**.
+
+**SENSITIVE TOPIC:** ${topic}
+
+**INSTRUCTIONS & CONSTRAINTS:**
+1.  **Format:** Output only an array of keywords/phrases. Do NOT include any numbering, prose, or introductory/explanatory sentences.
+2.  **Focus:** The terms must be specific enough to directly indicate the SENSITIVE TOPIC.
+3.  **Utility:** Terms must be suitable for use in a search query to identify relevant websites
+4.  **Quantity:** Generate between 10 and 15 keywords/phrases.
+
+**KEYWORD CRITERIA (Generate terms for these categories):**
+* **Topic Head Terms (Short):** The most essential, 1-2 word terms.
+* **Specific Entity Terms:** Names of common items or practices within the topic.
+* **Action/Intent Terms (Longer):** Phrases that suggest related content.
+* **Combinations:** Terms combining the topic with related concepts or qualifiers.
+**START GENERATION NOW:**
+`;
   const schema = {
     type: "object",
     properties: {
@@ -73,23 +90,33 @@ export async function censorSentences(text, topic) {
   const sentences = splitIntoSentences(text);
   if (sentences.length === 0) return [];
 
-  const prompt = buildPrompt(sentences, topic);
+  const prompt = buildTopicAnalysisPrompt(sentences, topic);
   const schema = {
     type: "array",
-    items: { type: "integer" },
-    description: "Indices of sentences that discuss the topic.",
+    items: {
+      type: "object",
+      properties: {
+        index: { type: "integer" },
+        reasoning: { type: "string" },
+        output: { type: "boolean" },
+      },
+      required: ["index", "output"],
+    },
   };
 
   try {
     const results = await runPrompt(prompt, schema);
-    const censoredIndices = new Set(results);
 
-    console.log("Censoring result for sentences:", censoredIndices);
+    console.log("Censoring result for sentences:", results);
 
-    return sentences.map((s, i) => ({
-      ...s,
-      censored: censoredIndices.has(i),
-    }));
+    const censoredMap = new Map();
+    results.forEach((r) => censoredMap.set(r.index, r.output));
+    return sentences.map((s, i) => {
+      return {
+        text: s.text,
+        censored: censoredMap.get(i) || false,
+      };
+    });
   } catch (error) {
     console.error(ERROR_MESSAGES.CENSOR_ERROR, error);
     return sentences.map((s) => ({
@@ -102,23 +129,61 @@ export async function censorSentences(text, topic) {
 /* Utility Functions */
 
 /**
- * Builds a prompt for the language model to determine which sentences discuss the topic.
+ * Builds a prompt for the language model to analyze sentences for relevance to a topic.
  * @param {Object[]} sentences - The sentences to analyze.
  * @param {string} topic - The topic to check against.
  * @returns {string} - The generated prompt.
  */
-function buildPrompt(sentences, topic) {
+function buildTopicAnalysisPrompt(sentences, topic) {
   const header = `
-For each sentence below, determine if it discusses the topic "${topic}".
-Focus on the "Text" and think about the overall meaning. Use the "Context" to clarify ambiguous cases.
-Return a JSON array of the indices of sentences that discuss the topic.
+**TASK:** Review a block of text and identify which sentences must be **FLAGGED** (Output true) because they provide specific, actionable detail **DIRECTLY ABOUT** the **SENSITIVE TOPIC**.
+
+**SENSITIVE TOPIC:** ${topic}
+
+**HIGH THRESHOLD DEFINITION:** A sentence must be flagged (Output true) **IF AND ONLY IF** it meets *both* of the following conditions:
+1.  It is **directly relevant** to the **SENSITIVE TOPIC** (${topic}).
+2.  It discusses the topic with a high degree of **specificity**, **detail**, or **actionable instruction**.
+
+**LOW THRESHOLD/PASS CONDITIONS (Output false):** DO NOT flag sentences that:
+1.  **Discuss any topic other than the SENSITIVE TOPIC** even if the content is specific or factual.
+2.  Only mention the **SENSITIVE TOPIC** in passing or with vague terms.
+3.  Discuss activities not related to the **SENSITIVE TOPIC**.
+
+**INPUT FORMAT:** A numbered list of sentences.
+Example:
+1. Early diagnosis of cancer is critical for improving patient outcomes.
+2. The Aries constellation is best viewed in December.
+3. My sister said her psychic told her exactly how to fix her financial problems using a Mercury retrograde ritual.
+4. I need to buy more groceries later today.
+
+**INSTRUCTIONS & OUTPUT FORMAT:**
+For each sentence, first check **RELEVANCE to the SENSITIVE TOPIC**. If not relevant, **Output false immediately**. If relevant, proceed to check the **HIGH THRESHOLD DEFINITION**.
+
+1.  **REASONING:** State clearly whether the sentence is RELEVANT or IRRELEVANT to the SENSITIVE TOPIC. If relevant, state whether it meets the HIGH THRESHOLD.
+2.  **OUTPUT:** Provide the final boolean decision (true or false).
+
+**Example Output (for the input above):**
+1. REASONING: The sentence discusses cancer diagnosis, which is completely IRRELEVANT to the SENSITIVE TOPIC (astrology and star signs).
+   OUTPUT: false
+
+2. REASONING: The sentence is RELEVANT (Aries constellation) but discusses a general fact (best viewed in December) and does not contain high specificity, detail, or actionable instruction related to the SENSITIVE TOPIC.
+   OUTPUT: false
+
+3. REASONING: The sentence is RELEVANT (psychic, Mercury retrograde ritual) and meets the HIGH THRESHOLD because it describes a specific, **actionable instruction** for a life problem linked to the SENSITIVE TOPIC.
+   OUTPUT: true
+
+4. REASONING: The sentence discusses groceries, which is completely IRRELEVANT to the SENSITIVE TOPIC.
+   OUTPUT: false
+
+**START PROCESSING THE TEXT NOW:**
 `;
 
   const body = sentences
     .map(
-      (s, i) => `Sentence ${i}:
-Text: ${s.text}
-Context: ${s.context}`
+      (s, i) => `
+Index: ${i}
+Sentence: "${s.text}"
+`
     )
     .join("\n\n");
 
@@ -128,7 +193,7 @@ Context: ${s.context}`
 /**
  * Splits text into sentences and adds context for each sentence.
  * @param {string} text - The text to split.
- * @param {number} [contextSize=1] - The number of sentences to include as context.
+ * @param {number} [contextSize=2] - The number of sentences to include as context.
  * @returns {Object[]} - An array of sentence objects with context.
  */
 function splitIntoSentences(text, contextSize = 1) {
