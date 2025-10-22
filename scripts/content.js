@@ -9,8 +9,6 @@ const IGNORED_NODES = new Set([
 const CSS = "hide-content-css";
 const OVERLAY = "hide-overlay";
 const BLACKOUT = "hide-extension-blackout";
-const LOADING = "hide-loading";
-const LOADING_CHAR = "hide-loading-char";
 const DATA_ORIGINAL = "hide-data-original";
 
 const ACTIONS = {
@@ -75,8 +73,8 @@ function collectTextNodes() {
 /* Overlay Management */
 
 /**
- * Displays the overlay
- * @param {string} action - Description of the action to display (e.g., "hidingInProgress").
+ * Displays the overlay with dynamic content and buttons.
+ * @param {string} action - The action to display (e.g., "hidingInProgress", "keywordsDetected").
  */
 function showOverlay(action = ACTIONS.HIDE_TOPIC) {
   injectContentStylesheet();
@@ -85,17 +83,59 @@ function showOverlay(action = ACTIONS.HIDE_TOPIC) {
   if (!overlay) {
     overlay = document.createElement("div");
     overlay.id = OVERLAY;
-    overlay.classList.add(OVERLAY);
+    overlay.classList.add("hide-overlay");
     document.body.appendChild(overlay);
   }
 
   overlay.innerHTML = "";
 
-  if (action === ACTIONS.HIDE_TOPIC) {
-    createLoadingAnimation(overlay);
-  } else if (action === ACTIONS.KEYWORDS_DETECTED) {
-    createKeywordsOverlay(overlay);
+  const logo = document.createElement("div");
+  logo.className = "hide-loading";
+  const text = " hide ";
+
+  for (const ch of Array.from(text)) {
+    const span = document.createElement("span");
+    span.className = "hide-loading-char";
+    span.textContent = ch;
+    logo.appendChild(span);
   }
+
+  if (action === ACTIONS.HIDE_TOPIC) {
+    const chars = Array.from(logo.querySelectorAll(".hide-loading-char"));
+    const perCharDelay = 0.12;
+    const extra = 0.6;
+    const totalDuration = chars.length * perCharDelay + extra;
+    logo.classList.add("animate");
+    chars.forEach((c, i) => {
+      c.style.animationDelay = `${i * perCharDelay}s`;
+      c.style.animationDuration = `${totalDuration}s`;
+    });
+  }
+
+  overlay.appendChild(logo);
+
+  const buttonContainer = document.createElement("div");
+  buttonContainer.className = "hide-body";
+
+  if (action === ACTIONS.KEYWORDS_DETECTED) {
+    const hideButton = createButton("Hide Content", () => {
+      hideTopic("TODO"); // Replace "TODO" with actual topic if available
+    });
+    buttonContainer.appendChild(hideButton);
+  }
+
+  const closeButton = createButton("Close Tab", () => {
+    unhideAll();
+    chrome.runtime.sendMessage({ action: ACTIONS.CLOSE_TAB });
+  });
+  buttonContainer.appendChild(closeButton);
+
+  const revealButton = createButton("Reveal Page", () => {
+    unhideAll();
+  });
+  buttonContainer.appendChild(revealButton);
+
+  overlay.appendChild(buttonContainer);
 }
 
 /**
@@ -104,73 +144,6 @@ function showOverlay(action = ACTIONS.HIDE_TOPIC) {
 function removeOverlay() {
   const overlay = document.getElementById(OVERLAY);
   if (overlay) overlay.remove();
-}
-
-/**
- * Creates the loading animation for the overlay.
- * @param {HTMLElement} overlay - The overlay element.
- */
-function createLoadingAnimation(overlay) {
-  const loading = document.createElement("div");
-  loading.className = LOADING;
-
-  const word = " hide ";
-  for (const ch of Array.from(word)) {
-    const span = document.createElement("span");
-    span.className = LOADING_CHAR;
-    span.textContent = ch;
-    loading.appendChild(span);
-  }
-
-  overlay.appendChild(loading);
-
-  const chars = Array.from(overlay.querySelectorAll(`.${LOADING_CHAR}`));
-  const perCharDelay = 0.12;
-  const extra = 0.6;
-  const totalDuration = chars.length * perCharDelay + extra;
-  loading.classList.add("animate");
-  chars.forEach((c, i) => {
-    c.style.animationDelay = `${i * perCharDelay}s`;
-    c.style.animationDuration = `${totalDuration}s`;
-  });
-}
-
-/**
- * Creates the keywords detected overlay with options.
- * @param {HTMLElement} overlay - The overlay element.
- */
-function createKeywordsOverlay(overlay) {
-  const loadingText = document.createElement("div");
-  loadingText.className = LOADING;
-  loadingText.textContent = " hide ";
-  overlay.appendChild(loadingText);
-
-  const explanation = document.createElement("p");
-  explanation.textContent = "Keywords detected. What would you like to do?";
-  explanation.style.marginTop = "20px";
-  explanation.style.textAlign = "center";
-  overlay.appendChild(explanation);
-
-  const options = document.createElement("div");
-  options.style.display = "flex";
-  options.style.justifyContent = "center";
-  options.style.gap = "10px";
-  options.style.marginTop = "20px";
-
-  const hideButton = createButton("Hide Content", () => {
-    chrome.runtime.sendMessage({
-      action: ACTIONS.HIDE_TOPIC,
-      topic: "detected",
-    });
-    removeOverlay();
-  });
-  const closeButton = createButton("Close Tab", () => {
-    chrome.runtime.sendMessage({ action: ACTIONS.CLOSE_TAB });
-  });
-  const removeButton = createButton("Remove Overlay", removeOverlay);
-
-  options.append(hideButton, closeButton, removeButton);
-  overlay.appendChild(options);
 }
 
 /**
@@ -340,7 +313,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       break;
 
     case ACTIONS.KEYWORDS_DETECTED:
-      showOverlay(KEYWORDS_DETECTED);
+      showOverlay(ACTIONS.KEYWORDS_DETECTED);
       break;
 
     case ACTIONS.QUERY_STATE:
