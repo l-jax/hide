@@ -167,21 +167,53 @@ function handleUndoButtonClick() {
 }
 
 /**
- * Updates the stored content display in the popup.
+ * Updates the stored content display with removable keywords.
  */
 function displayStoredContent() {
   const storedTopic = document.getElementById("storedTopic");
-  const storedKeywords = document.getElementById("storedKeywords");
+  const storedKeywordsContainer = document.getElementById("storedKeywords");
 
-  if (!storedTopic || !storedKeywords) return;
+  if (!storedTopic || !storedKeywordsContainer) return;
 
   chrome.storage.local.get(["topic", "keywords"], (result) => {
     const { topic, keywords } = result;
 
     storedTopic.textContent = `Topic: ${topic || "None"}`;
-    storedKeywords.textContent = `Keywords: ${
-      keywords ? keywords.join(", ") : "None"
-    }`;
+
+    storedKeywordsContainer.innerHTML = "";
+
+    if (keywords && keywords.length > 0) {
+      keywords.forEach((keyword, index) => {
+        const keywordElement = document.createElement("span");
+        keywordElement.className = "keyword-item";
+        keywordElement.textContent = keyword;
+
+        keywordElement.addEventListener("click", () => {
+          removeKeyword(index);
+        });
+
+        storedKeywordsContainer.appendChild(keywordElement);
+      });
+    } else {
+      storedKeywordsContainer.textContent = "Keywords: None";
+    }
+  });
+}
+
+/**
+ * Removes a keyword from storage by index.
+ * @param {number} index - The index of the keyword to remove.
+ */
+function removeKeyword(index) {
+  chrome.storage.local.get(["keywords"], (result) => {
+    const { keywords } = result;
+
+    if (keywords && keywords.length > index) {
+      keywords.splice(index, 1); // Remove the keyword at the specified index
+      chrome.storage.local.set({ keywords }, () => {
+        displayStoredContent(); // Refresh the displayed keywords
+      });
+    }
   });
 }
 
