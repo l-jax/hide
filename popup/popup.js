@@ -166,6 +166,25 @@ function handleUndoButtonClick() {
   }
 }
 
+/**
+ * Updates the stored content display in the popup.
+ */
+function displayStoredContent() {
+  const storedTopic = document.getElementById("storedTopic");
+  const storedKeywords = document.getElementById("storedKeywords");
+
+  if (!storedTopic || !storedKeywords) return;
+
+  chrome.storage.local.get(["topic", "keywords"], (result) => {
+    const { topic, keywords } = result;
+
+    storedTopic.textContent = `Topic: ${topic || "None"}`;
+    storedKeywords.textContent = `Keywords: ${
+      keywords ? keywords.join(", ") : "None"
+    }`;
+  });
+}
+
 /* Initialization */
 
 /**
@@ -175,6 +194,7 @@ function initializePopup() {
   handleFormSubmit();
   handleUndoButtonClick();
   updateUndoButton();
+  displayStoredContent();
 }
 
 document.addEventListener("DOMContentLoaded", initializePopup);
