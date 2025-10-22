@@ -1,10 +1,15 @@
-import { checkKeywords, extractKeywords, censorSentences } from "./text.js";
+import {
+  checkKeywords,
+  storeKeywords,
+  censorSentences,
+  storeSummary,
+} from "./text.js";
 
 /* Constants */
 const ACTIONS = {
   CLOSE_TAB: "closeTab",
   CENSOR_TEXT: "censorText",
-  GENERATE_KEYWORDS: "generateKeywords",
+  STORE_TOPIC: "storeTopic",
 };
 
 /* Event Listeners */
@@ -46,8 +51,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleCensorText(message, sendResponse);
       return true;
 
-    case ACTIONS.GENERATE_KEYWORDS:
-      handleGenerateKeywords(message, sendResponse);
+    case ACTIONS.STORE_TOPIC:
+      handleStoreTopic(message, sendResponse);
       return true;
 
     default:
@@ -100,17 +105,18 @@ async function handleCensorText(message, sendResponse) {
  * @param {Object} message - The message containing the topic.
  * @param {Function} sendResponse - The callback to send the response.
  */
-function handleGenerateKeywords(message, sendResponse) {
+function handleStoreTopic(message, sendResponse) {
   if (typeof message.topic !== "string" || !message.topic.trim()) {
-    console.error("Invalid topic provided for generating keywords:", message.topic);
+    console.error("Invalid topic provided:", message.topic);
     sendResponse({ success: false, error: "Invalid topic" });
     return;
   }
 
-  console.log("Generating keywords for:", message.topic);
+  console.log("Storing topic:", message.topic);
 
   try {
-    extractKeywords(message.topic);
+    storeSummary(message.topic);
+    storeKeywords(message.topic);
     sendResponse({ success: true });
   } catch (error) {
     console.error("Error generating keywords:", error);

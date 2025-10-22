@@ -10,7 +10,7 @@ const ACTIONS = {
   HIDE_TOPIC: "hideTopic",
   UNDO: "undo",
   QUERY_STATE: "queryState",
-  GENERATE_KEYWORDS: "generateKeywords",
+  STORE_TOPIC: "storeTopic",
 };
 
 /* Utilities */
@@ -101,8 +101,8 @@ function handleFormSubmit() {
       const topic = topicInput.value.trim();
       if (!topic) return;
 
-      sendMessageToBackground({ action: ACTIONS.GENERATE_KEYWORDS, topic }, () => {
-        console.log("Keyword generation requested for topic:", topic);
+      sendMessageToBackground({ action: ACTIONS.STORE_TOPIC, topic }, () => {
+        console.log("Topic stored:", topic);
       });
 
       queryActiveTab((tab) => {

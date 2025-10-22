@@ -1,4 +1,5 @@
 import { runPrompt } from "./model.js";
+import { generateSummary } from "./summarizer.js";
 
 /* Constants */
 const ERROR_MESSAGES = {
@@ -6,14 +7,30 @@ const ERROR_MESSAGES = {
   CENSOR_ERROR: "Error censoring sentences",
 };
 
-/* Keyword Extraction */
+/**
+ * Generates summary for the given topic.
+ * @param {string} topic - The topic to generate a summary for.
+ * @returns {Promise<string>} - A promise that resolves to the generated summary.
+ */
+export async function storeSummary(topic) {
+  console.log("Generating summary for topic:", topic);
+  if (!topic || typeof topic !== "string" || !topic.trim()) {
+    console.error(ERROR_MESSAGES.INVALID_TOPIC, topic);
+    return "";
+  }
+
+  // todo: generate summary from topic
+  chrome.storage.local.set({ topic: topic });
+
+  return topic;
+}
 
 /**
  * Extracts keywords for the given topic.
  * @param {string} topic - The topic to extract keywords for.
  * @returns {Promise<string[]>} - A promise that resolves to an array of keywords.
  */
-export async function extractKeywords(topic) {
+export async function storeKeywords(topic) {
   console.log("Extracting keywords for topic:", topic);
 
   if (!topic || typeof topic !== "string" || !topic.trim()) {

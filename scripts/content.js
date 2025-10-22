@@ -118,8 +118,10 @@ function showOverlay(action = ACTIONS.HIDE_TOPIC) {
   buttonContainer.className = "hide-body";
 
   if (action === ACTIONS.KEYWORDS_DETECTED) {
-    const hideButton = createButton("Hide Content", () => {
-      hideTopic("TODO"); // Replace "TODO" with actual topic if available
+    const hideButton = createButton("Hide Content", async () => {
+      const topic = await chrome.storage.local.get("topic");
+      console.log("Hiding detected keywords for topic:", topic);
+      hideTopic(topic.topic);
     });
     buttonContainer.appendChild(hideButton);
   }
