@@ -1,8 +1,4 @@
-import {
-  storeKeywords,
-  censorSentences,
-  storeSummary,
-} from "./text.js";
+import { storeKeywords, censorSentences } from "./text.js";
 
 /* Constants */
 const ACTIONS = {
@@ -95,8 +91,10 @@ function handleStoreTopic(message, sendResponse) {
 
   console.log("Storing topic:", message.topic);
 
+  chrome.storage.local.set({ topic: message.topic });
+  chrome.storage.local.set({ keywords: [] });
+
   try {
-    storeSummary(message.topic);
     storeKeywords(message.topic);
     sendResponse({ success: true });
   } catch (error) {
