@@ -62,3 +62,4 @@ Hide uses a popup to collect user input
 - [x] display hiding hint on overlay
 - [ ] send cancelled event if user closes tab or reveals page
 - [ ] display keyword loading in popup
+- [ ] update README to reflect new functionality

@@ -19,7 +19,7 @@ let isCancelled = false;
 
 const OVERLAY_CONFIG = {
   [ACTIONS.HIDE_TOPIC]: {
-    message: "hiding in progress...",
+    message: "hiding in progress",
     animateLogo: true,
     buttons: [
       {
@@ -95,21 +95,34 @@ function isIgnoredNode(parent) {
  */
 function collectTextNodes() {
   const nodes = [];
+  const overlay = document.getElementById("hide-overlay");
+
   const walker = document.createTreeWalker(
     document.body,
     NodeFilter.SHOW_TEXT,
     {
       acceptNode: (node) => {
         const parent = node.parentNode;
-        if (!parent || isIgnoredNode(parent)) return NodeFilter.FILTER_REJECT;
-        if (!node.nodeValue || !node.nodeValue.trim())
+
+        // Exclude ignored nodes and nodes inside the overlay
+        if (!parent || isIgnoredNode(parent) || (overlay && overlay.contains(node))) {
           return NodeFilter.FILTER_REJECT;
+        }
+
+        if (!node.nodeValue || !node.nodeValue.trim()) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
         return NodeFilter.FILTER_ACCEPT;
       },
     }
   );
+
   let node;
-  while ((node = walker.nextNode())) nodes.push(node);
+  while ((node = walker.nextNode())) {
+    nodes.push(node);
+  }
+
   return nodes;
 }
 

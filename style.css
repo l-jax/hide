@@ -51,7 +51,7 @@
   }
 }
 
-#hide-overlay .hide-extension-blackout {
+.hide-extension-blackout {
   background: #000;
   color: transparent;
   border-radius: 2px;
@@ -60,8 +60,7 @@
   user-select: none;
 }
 
-#hide-overlay,
-#hide-overlay .hide-extension-blackout {
+.hide-extension-blackout {
   font-family: inherit;
   font-size: inherit;
 }
