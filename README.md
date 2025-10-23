@@ -57,7 +57,8 @@ Hide uses a popup to collect user input
 - [x] bring overlay across pages whose title and headings match stored keywords
 - [x] prompt user to run full hide if page may contain content they don't want to see
 - [x] add keyword handling to popup
-- [ ] rework prompts to improve keyword generation and text censorship
+- [x] rework prompts to improve keyword generation and text censorship
 - [x] display keyword match on overlay
-- [ ] display hiding hint on overlay
+- [x] display hiding hint on overlay
 - [ ] send cancelled event if user closes tab or reveals page
+- [ ] display keyword loading in popup
