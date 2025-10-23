@@ -54,6 +54,7 @@ export async function runPrompt(prompt, schema) {
   try {
     const session = await ensureSession();
     const result = await session.prompt(prompt, { responseConstraint: schema });
+    console.log("Prompt result:", result);
     return JSON.parse(result);
   } catch (error) {
     console.error(ERROR_MESSAGES.PROMPT_ERROR, prompt, error);

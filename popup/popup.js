@@ -102,7 +102,7 @@ function displayStoredContent() {
         storedKeywordsContainer.appendChild(keywordElement);
       });
     } else {
-      storedKeywordsContainer.textContent = "Keywords: None";
+      storedKeywordsContainer.textContent = "None";
     }
   });
 }
