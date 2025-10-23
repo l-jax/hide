@@ -57,6 +57,7 @@ function sendMessageToBackground(message, callback) {
 function handleFormSubmit() {
   const topicForm = document.getElementById("topicForm");
   const topicInput = document.getElementById("topic");
+  const storedKeywordsContainer = document.getElementById("storedKeywords");
 
   if (topicForm && topicInput) {
     topicForm.addEventListener("submit", function (e) {
@@ -64,9 +65,42 @@ function handleFormSubmit() {
       const topic = topicInput.value.trim();
       if (!topic) return;
 
+      storedKeywordsContainer.innerHTML = "<p>Loading keywords...</p>";
+      storedKeywordsContainer.classList.add("loading");
+
       sendMessageToBackground({ action: "storeTopic", topic }, () => {
-        console.log("Topic stored:", topic);
+        if (chrome.runtime.lastError) {
+          console.error("Error sending message to background script:", chrome.runtime.lastError.message);
+          storedKeywordsContainer.classList.remove("loading");
+          storedKeywordsContainer.innerHTML = "<p>Error generating keywords. Please try again.</p>";
+          return;
+        }
       });
+    });
+
+    chrome.runtime.onMessage.addListener(function listener(message) {
+      if (message.action === "updateKeywords" && message.keywords) {
+        chrome.runtime.onMessage.removeListener(listener);
+
+        storedKeywordsContainer.classList.remove("loading");
+        storedKeywordsContainer.innerHTML = "";
+
+        const keywords = message.keywords;
+        if (keywords.length > 0) {
+          keywords.forEach((keyword, index) => {
+            const keywordElement = document.createElement("span");
+            keywordElement.className = "keyword-item";
+            keywordElement.textContent = keyword;
+            keywordElement.addEventListener("click", () => {
+              removeKeyword(index);
+            });
+
+            storedKeywordsContainer.appendChild(keywordElement);
+          });
+        } else {
+          storedKeywordsContainer.textContent = "No keywords generated.";
+        }
+      }
     });
   }
 }

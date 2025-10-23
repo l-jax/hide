@@ -171,3 +171,14 @@
   color: var(--color-bg);
   text-decoration: line-through;
 }
+
+.loading {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.loading p {
+  font-style: italic;
+  color: var(--color-accent);
+}
