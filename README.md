@@ -58,5 +58,5 @@ Hide uses a popup to collect user input
 - [x] prompt user to run full hide if page may contain content they don't want to see
 - [x] add keyword handling to popup
 - [ ] rework prompts to improve keyword generation and text censorship
-- [ ] display keyword match on overlay
+- [x] display keyword match on overlay
 - [ ] display hiding hint on overlay

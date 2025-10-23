@@ -108,7 +108,7 @@ function getMinimalPageContent() {
  * Displays the overlay with dynamic content and buttons.
  * @param {string} action - The action to display (e.g., "hidingInProgress", "keywordsDetected").
  */
-function showOverlay(action = ACTIONS.HIDE_TOPIC) {
+function showOverlay(action = ACTIONS.HIDE_TOPIC, keyword) {
   injectContentStylesheet();
   let overlay = document.getElementById(OVERLAY);
 
@@ -145,6 +145,12 @@ function showOverlay(action = ACTIONS.HIDE_TOPIC) {
   }
 
   overlay.appendChild(logo);
+
+  if (keyword) {
+    const info = document.createElement("div");
+    info.textContent = `Detected keyword: "${keyword}"`;
+    overlay.appendChild(info);
+  }
 
   const buttonContainer = document.createElement("div");
   buttonContainer.className = "hide-body";
@@ -341,7 +347,7 @@ window.addEventListener('load', () => {
         return minimalContent.toLowerCase().includes(keyword.toLowerCase());
       });
       if (minimalContentMatches) {
-        showOverlay(ACTIONS.KEYWORDS_DETECTED);
+        showOverlay(ACTIONS.KEYWORDS_DETECTED, keywords.find((keyword) => minimalContent.toLowerCase().includes(keyword.toLowerCase())));
       }
     });
 });
@@ -358,10 +364,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     case ACTIONS.UNDO:
       unhideAll();
       sendResponse({ success: true });
-      break;
-
-    case ACTIONS.KEYWORDS_DETECTED:
-      showOverlay(ACTIONS.KEYWORDS_DETECTED);
       break;
 
     case ACTIONS.QUERY_STATE:
