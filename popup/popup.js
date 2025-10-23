@@ -1,59 +1,57 @@
 /* Utilities */
 
 /**
- * Queries the active tab and executes a callback with the tab object.
- * @param {Function} callback - The callback to execute with the active tab.
+ * Creates a keyword element with a remove button.
+ * @param {string} keyword - The keyword text.
+ * @param {number} index - The index of the keyword.
+ * @param {Function} removeCallback - The callback to remove the keyword.
+ * @returns {HTMLElement} - The keyword element.
  */
-function queryActiveTab(callback) {
-  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-    if (tabs && tabs[0]) {
-      callback(tabs[0]);
-    } else {
-      console.error("No active tab found");
-    }
-  });
+function createKeywordElement(keyword, index, removeCallback) {
+  const keywordElement = document.createElement("span");
+  keywordElement.className = "keyword-item";
+  keywordElement.textContent = keyword;
+  keywordElement.addEventListener("click", () => removeCallback(index));
+  return keywordElement;
 }
 
 /**
- * Sends a message to the content script of the active tab.
- * @param {Object} tab - The active tab object.
- * @param {Object} message - The message to send.
- * @param {Function} [callback] - Optional callback to execute after the message is sent.
+ * Updates the keyword container with the provided keywords.
+ * @param {HTMLElement} container - The container element.
+ * @param {string[]} keywords - The list of keywords.
+ * @param {Function} removeCallback - The callback to remove a keyword.
  */
-function sendMessageToTab(tab, message, callback) {
-  chrome.tabs.sendMessage(tab.id, message, function (response) {
-    if (chrome.runtime.lastError) {
-      console.error("Error sending message:", chrome.runtime.lastError.message);
-    }
-    if (callback) callback(response);
-  });
-}
+function updateKeywordContainer(container, keywords, removeCallback) {
+  container.classList.remove("loading");
+  container.innerHTML = "";
 
-/**
- * Sends a message to the background script.
- * @param {Object} message - The message to send.
- * @param {Function} [callback] - Optional callback to execute after the message is sent.
- */
-function sendMessageToBackground(message, callback) {
-  console.log("Sending message to background script:", message);
-  chrome.runtime.sendMessage(message, function (response) {
-    if (chrome.runtime.lastError) {
-      console.error(
-        "Error sending message to background script:",
-        chrome.runtime.lastError.message
+  if (keywords.length > 0) {
+    keywords.forEach((keyword, index) => {
+      const keywordElement = createKeywordElement(
+        keyword,
+        index,
+        removeCallback
       );
-    } else {
-      console.log("Background script response:", response);
-    }
-    if (callback) callback(response);
-  });
+      container.appendChild(keywordElement);
+    });
+  } else {
+    container.textContent = "No keywords generated.";
+  }
+}
+
+/**
+ * Handles errors during keyword generation.
+ * @param {HTMLElement} container - The container element.
+ * @param {string} errorMessage - The error message to display.
+ */
+function handleKeywordError(container, errorMessage) {
+  console.error(errorMessage);
+  container.classList.remove("loading");
+  container.innerHTML = `<p>${errorMessage}</p>`;
 }
 
 /* Event Handlers */
 
-/**
- * Handles the form submission to hide a topic and generate keywords.
- */
 function handleFormSubmit() {
   const topicForm = document.getElementById("topicForm");
   const topicInput = document.getElementById("topic");
@@ -68,46 +66,34 @@ function handleFormSubmit() {
       storedKeywordsContainer.innerHTML = "<p>Loading keywords...</p>";
       storedKeywordsContainer.classList.add("loading");
 
-      sendMessageToBackground({ action: "storeTopic", topic }, () => {
+      chrome.runtime.sendMessage({ action: "storeTopic", topic }, () => {
         if (chrome.runtime.lastError) {
-          console.error("Error sending message to background script:", chrome.runtime.lastError.message);
-          storedKeywordsContainer.classList.remove("loading");
-          storedKeywordsContainer.innerHTML = "<p>Error generating keywords. Please try again.</p>";
+          handleKeywordError(
+            storedKeywordsContainer,
+            "Error generating keywords. Please try again."
+          );
           return;
         }
+
+        console.log(
+          "Message sent to background script. Waiting for callback..."
+        );
       });
     });
 
     chrome.runtime.onMessage.addListener(function listener(message) {
       if (message.action === "updateKeywords" && message.keywords) {
         chrome.runtime.onMessage.removeListener(listener);
-
-        storedKeywordsContainer.classList.remove("loading");
-        storedKeywordsContainer.innerHTML = "";
-
-        const keywords = message.keywords;
-        if (keywords.length > 0) {
-          keywords.forEach((keyword, index) => {
-            const keywordElement = document.createElement("span");
-            keywordElement.className = "keyword-item";
-            keywordElement.textContent = keyword;
-            keywordElement.addEventListener("click", () => {
-              removeKeyword(index);
-            });
-
-            storedKeywordsContainer.appendChild(keywordElement);
-          });
-        } else {
-          storedKeywordsContainer.textContent = "No keywords generated.";
-        }
+        updateKeywordContainer(
+          storedKeywordsContainer,
+          message.keywords,
+          removeKeyword
+        );
       }
     });
   }
 }
 
-/**
- * Updates the stored content display with removable keywords.
- */
 function displayStoredContent() {
   const topicInput = document.getElementById("topic");
 
@@ -121,30 +107,14 @@ function displayStoredContent() {
     const storedKeywordsContainer = document.getElementById("storedKeywords");
     if (!storedKeywordsContainer) return;
 
-    storedKeywordsContainer.innerHTML = "";
-
-    if (keywords && keywords.length > 0) {
-      keywords.forEach((keyword, index) => {
-        const keywordElement = document.createElement("span");
-        keywordElement.className = "keyword-item";
-        keywordElement.textContent = keyword;
-
-        keywordElement.addEventListener("click", () => {
-          removeKeyword(index);
-        });
-
-        storedKeywordsContainer.appendChild(keywordElement);
-      });
-    } else {
-      storedKeywordsContainer.textContent = "None";
-    }
+    updateKeywordContainer(
+      storedKeywordsContainer,
+      keywords || [],
+      removeKeyword
+    );
   });
 }
 
-/**
- * Removes a keyword from storage by index.
- * @param {number} index - The index of the keyword to remove.
- */
 function removeKeyword(index) {
   chrome.storage.local.get(["keywords"], (result) => {
     const { keywords } = result;
@@ -158,11 +128,6 @@ function removeKeyword(index) {
   });
 }
 
-/* Initialization */
-
-/**
- * Initializes the popup by setting up event listeners and updating the UI.
- */
 function initializePopup() {
   handleFormSubmit();
   displayStoredContent();
