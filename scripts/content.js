@@ -70,6 +70,38 @@ function collectTextNodes() {
   return nodes;
 }
 
+function getMinimalPageContent() {
+    let contentParts = [];
+
+    const title = document.title;
+    if (title) {
+        contentParts.push(title);
+    }
+
+    const metaDescriptionTag = document.querySelector('meta[name="description"], meta[property="og:description"]');
+    const metaDescription = metaDescriptionTag ? metaDescriptionTag.content : '';
+    if (metaDescription) {
+        contentParts.push(metaDescription);
+    }
+
+    const h1Element = document.querySelector('h1');
+    const h1Text = h1Element ? h1Element.innerText.trim() : '';
+    if (h1Text) {
+        contentParts.push(h1Text);
+    }
+
+    const mainContentContainer = document.querySelector('main, article, #content, body');
+    const firstParagraph = mainContentContainer ? mainContentContainer.querySelector('p') : document.querySelector('p');
+    const pText = firstParagraph ? firstParagraph.innerText.trim() : '';
+    if (pText && pText.length > 30) { 
+        contentParts.push(pText);
+    }
+    
+    const minimalText = contentParts.join('. ');
+
+    return minimalText;
+}
+
 /* Overlay Management */
 
 /**
@@ -299,6 +331,20 @@ function unhideAll() {
 }
 
 /* Event Listeners */
+
+window.addEventListener('load', () => {
+    const minimalContent = getMinimalPageContent();
+    chrome.storage.local.get("keywords").then((result) => {
+      const keywords = result.keywords || [];
+      console.log("Checking minimal page content for keywords:", minimalContent, keywords);
+      const minimalContentMatches = keywords.some((keyword) => {
+        return minimalContent.toLowerCase().includes(keyword.toLowerCase());
+      });
+      if (minimalContentMatches) {
+        showOverlay(ACTIONS.KEYWORDS_DETECTED);
+      }
+    });
+});
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || !msg.action) return;

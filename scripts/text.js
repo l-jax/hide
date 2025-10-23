@@ -1,5 +1,4 @@
 import { runPrompt } from "./model.js";
-import { generateSummary } from "./summarizer.js";
 
 /* Constants */
 const ERROR_MESSAGES = {
@@ -75,26 +74,6 @@ export async function storeKeywords(topic) {
   } catch (error) {
     console.error("Error extracting keywords:", error);
     return [];
-  }
-}
-
-/**
- * Checks if the current tab's title or URL matches any stored keywords.
- * @param {number} tabId - The ID of the tab to check.
- */
-export async function checkKeywords(tabId) {
-  const { keywords } = await chrome.storage.local.get("keywords");
-  const tab = await chrome.tabs.get(tabId);
-
-  const titleMatches = keywords.some((keyword) =>
-    tab.title.toLowerCase().includes(keyword.toLowerCase())
-  );
-  const urlMatches = keywords.some((keyword) =>
-    tab.url.toLowerCase().includes(keyword.toLowerCase())
-  );
-
-  if (titleMatches || urlMatches) {
-    chrome.tabs.sendMessage(tabId, { action: "keywordsDetected", keywords });
   }
 }
 

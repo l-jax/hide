@@ -1,5 +1,4 @@
 import {
-  checkKeywords,
   storeKeywords,
   censorSentences,
   storeSummary,
@@ -11,24 +10,6 @@ const ACTIONS = {
   CENSOR_TEXT: "censorText",
   STORE_TOPIC: "storeTopic",
 };
-
-/* Event Listeners */
-
-/**
- * Listener for when a tab is activated.
- * Checks for keywords in the active tab.
- */
-chrome.tabs.onActivated.addListener((activeInfo) => {
-  checkKeywords(activeInfo.tabId);
-});
-
-/**
- * Listener for when a tab is updated.
- * Checks for keywords in the updated tab.
- */
-chrome.tabs.onUpdated.addListener(async (tabId) => {
-  checkKeywords(tabId);
-});
 
 /**
  * Listener for runtime messages.
