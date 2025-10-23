@@ -38,7 +38,7 @@ const OVERLAY_CONFIG = {
     ],
   },
   [ACTIONS.KEYWORDS_DETECTED]: {
-    message: (keyword) => `this page contains keyword: "${keyword}"`,
+    message: (keyword) => `this page mentions '${keyword}'`,
     animateLogo: false,
     buttons: [
       {
