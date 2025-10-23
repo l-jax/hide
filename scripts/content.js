@@ -20,6 +20,54 @@ const ACTIONS = {
   CENSOR_TEXT: "censorText",
 };
 
+const OVERLAY_CONFIG = {
+  [ACTIONS.HIDE_TOPIC]: {
+    message: "hiding in progress...",
+    animateLogo: true,
+    buttons: [
+      {
+        text: "Close Tab",
+        onClick: () => {
+          unhideAll();
+          chrome.runtime.sendMessage({ action: ACTIONS.CLOSE_TAB });
+        },
+      },
+      {
+        text: "Reveal Page",
+        onClick: () => {
+          unhideAll();
+        },
+      },
+    ],
+  },
+  [ACTIONS.KEYWORDS_DETECTED]: {
+    message: (keyword) => `Detected keyword: "${keyword}"`,
+    animateLogo: false,
+    buttons: [
+      {
+        text: "Hide Content",
+        onClick: async () => {
+          const topic = await chrome.storage.local.get("topic");
+          hideTopic(topic.topic);
+        },
+      },
+      {
+        text: "Close Tab",
+        onClick: () => {
+          unhideAll();
+          chrome.runtime.sendMessage({ action: ACTIONS.CLOSE_TAB });
+        },
+      },
+      {
+        text: "Reveal Page",
+        onClick: () => {
+          unhideAll();
+        },
+      },
+    ],
+  },
+};
+
 let isCancelled = false;
 
 /* Utilities */
@@ -105,22 +153,27 @@ function getMinimalPageContent() {
 /* Overlay Management */
 
 /**
- * Displays the overlay with dynamic content and buttons.
- * @param {string} action - The action to display (e.g., "hidingInProgress", "keywordsDetected").
+ * Creates the overlay container if it doesn't exist.
+ * @returns {HTMLElement} - The overlay element.
  */
-function showOverlay(action = ACTIONS.HIDE_TOPIC, keyword) {
-  injectContentStylesheet();
+function getOrCreateOverlay() {
   let overlay = document.getElementById(OVERLAY);
-
   if (!overlay) {
     overlay = document.createElement("div");
     overlay.id = OVERLAY;
     overlay.classList.add("hide-overlay");
     document.body.appendChild(overlay);
   }
+  overlay.innerHTML = ""; // Clear existing content
+  return overlay;
+}
 
-  overlay.innerHTML = "";
-
+/**
+ * Creates the loading animation for the overlay.
+ * @param {boolean} animate - Whether to animate the logo.
+ * @returns {HTMLElement} - The loading animation element.
+ */
+function createLoadingAnimation(animate) {
   const logo = document.createElement("div");
   logo.className = "hide-loading";
   const text = " hide ";
@@ -132,7 +185,7 @@ function showOverlay(action = ACTIONS.HIDE_TOPIC, keyword) {
     logo.appendChild(span);
   }
 
-  if (action === ACTIONS.HIDE_TOPIC) {
+  if (animate) {
     const chars = Array.from(logo.querySelectorAll(".hide-loading-char"));
     const perCharDelay = 0.12;
     const extra = 0.6;
@@ -144,46 +197,7 @@ function showOverlay(action = ACTIONS.HIDE_TOPIC, keyword) {
     });
   }
 
-  overlay.appendChild(logo);
-
-  if (keyword) {
-    const info = document.createElement("div");
-    info.textContent = `Detected keyword: "${keyword}"`;
-    overlay.appendChild(info);
-  }
-
-  const buttonContainer = document.createElement("div");
-  buttonContainer.className = "hide-body";
-
-  if (action === ACTIONS.KEYWORDS_DETECTED) {
-    const hideButton = createButton("Hide Content", async () => {
-      const topic = await chrome.storage.local.get("topic");
-      console.log("Hiding detected keywords for topic:", topic);
-      hideTopic(topic.topic);
-    });
-    buttonContainer.appendChild(hideButton);
-  }
-
-  const closeButton = createButton("Close Tab", () => {
-    unhideAll();
-    chrome.runtime.sendMessage({ action: ACTIONS.CLOSE_TAB });
-  });
-  buttonContainer.appendChild(closeButton);
-
-  const revealButton = createButton("Reveal Page", () => {
-    unhideAll();
-  });
-  buttonContainer.appendChild(revealButton);
-
-  overlay.appendChild(buttonContainer);
-}
-
-/**
- * Removes the overlay from the document.
- */
-function removeOverlay() {
-  const overlay = document.getElementById(OVERLAY);
-  if (overlay) overlay.remove();
+  return logo;
 }
 
 /**
@@ -197,6 +211,58 @@ function createButton(text, onClick) {
   button.textContent = text;
   button.addEventListener("click", onClick);
   return button;
+}
+
+/**
+ * Populates the overlay with content based on the action.
+ * @param {HTMLElement} overlay - The overlay element.
+ * @param {string} action - The action to display.
+ * @param {string} [keyword] - The detected keyword (if any).
+ */
+function populateOverlay(overlay, action, keyword) {
+  const config = OVERLAY_CONFIG[action];
+  if (!config) {
+    console.warn("No configuration found for action:", action);
+    return;
+  }
+
+  const logo = createLoadingAnimation(config.animateLogo);
+  overlay.appendChild(logo);
+
+  if (config.message && keyword) {
+    const info = document.createElement("div");
+    info.textContent = typeof config.message === "function" ? config.message(keyword) : config.message;
+    overlay.appendChild(info);
+  }
+
+  const buttonContainer = document.createElement("div");
+  buttonContainer.className = "hide-body";
+
+  config.buttons.forEach(({ text, onClick }) => {
+    const button = createButton(text, onClick);
+    buttonContainer.appendChild(button);
+  });
+
+  overlay.appendChild(buttonContainer);
+}
+
+/**
+ * Displays the overlay with dynamic content and buttons.
+ * @param {string} action - The action to display
+ * @param {string} [keyword] - The detected keyword (if any).
+ */
+function showOverlay(action = ACTIONS.HIDE_TOPIC, keyword) {
+  injectContentStylesheet();
+  const overlay = getOrCreateOverlay();
+  populateOverlay(overlay, action, keyword);
+}
+
+/**
+ * Removes the overlay from the document.
+ */
+function removeOverlay() {
+  const overlay = document.getElementById(OVERLAY);
+  if (overlay) overlay.remove();
 }
 
 /* Text Processing */
