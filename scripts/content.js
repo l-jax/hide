@@ -7,12 +7,12 @@ const IGNORED_NODES = new Set([
 ]);
 
 const ACTIONS = {
+  CENSOR_TEXT: "censorText",
+  CLOSE_TAB: "closeTab",
   HIDE_TOPIC: "hideTopic",
-  UNDO: "undo",
   KEYWORDS_DETECTED: "keywordsDetected",
   QUERY_STATE: "queryState",
-  CLOSE_TAB: "closeTab",
-  CENSOR_TEXT: "censorText",
+  UNDO: "undo",
 };
 
 let isCancelled = false;
@@ -105,7 +105,11 @@ function collectTextNodes() {
         const parent = node.parentNode;
 
         // Exclude ignored nodes and nodes inside the overlay
-        if (!parent || isIgnoredNode(parent) || (overlay && overlay.contains(node))) {
+        if (
+          !parent ||
+          isIgnoredNode(parent) ||
+          (overlay && overlay.contains(node))
+        ) {
           return NodeFilter.FILTER_REJECT;
         }
 
@@ -347,6 +351,8 @@ async function processTextNode(node, topic, fragment) {
       console.error("Error from censorText:", response.error);
       return;
     }
+
+    if (isCancelled) return;
 
     if (!Array.isArray(response.result)) {
       console.error("Invalid response from censorText:", response.result);
