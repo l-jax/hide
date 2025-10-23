@@ -11,26 +11,20 @@
     <header class="hide-header">
       <h1>hide</h1>
     </header>
-    <form id="topicForm">
-      <input
-        type="text"
-        id="topic"
-        placeholder="describe the content you don't want to see"
-        required
-      />
-      <div class="hide-button-group">
-        <button id="undoBtn" type="button">undo</button>
-      </div>
-    </form>
-    <footer class="hide-footer">
-      <small id="selHint">what do you want to hide?</small>
-    </footer>
     <main>
+      <p><strong>Currently Hiding:</strong></p>
+      <form id="topicForm">
+        <input
+          type="text"
+          id="topic"
+          placeholder="describe the content you don't want to see"
+          required
+        />
+      </form>
       <div id="storedContent">
-        <p><strong>Currently Hiding:</strong></p>
-        <p id="storedTopic">Topic: None</p>
+        <p><strong>Keywords:</strong></p>
         <div id="storedKeywords" class="keywords-container">
-          <!-- Keywords will be displayed here as removable items -->
+          <!-- Keywords will be displayed here -->
         </div>
       </div>
     </main>
