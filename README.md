@@ -55,5 +55,6 @@ Hide uses a popup to collect user input
 - [x] store user input with list of keywords to allow rapid decision on unseen pages
 - [x] use `<title>` and `<h1>` tags to quickly scan page content
 - [x] bring overlay across pages whose title and headings match stored keywords
-- [ ] prompt user to run full hide if page may contain content they don't want to see
-- [ ] add keyword handling to popup
+- [x] prompt user to run full hide if page may contain content they don't want to see
+- [x] add keyword handling to popup
+- [ ] rework prompts to improve keyword generation and text censorship
