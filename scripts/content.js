@@ -23,14 +23,14 @@ const OVERLAY_CONFIG = {
     animateLogo: true,
     buttons: [
       {
-        text: "Close Tab",
+        text: "Close",
         onClick: () => {
           unhideAll();
           chrome.runtime.sendMessage({ action: ACTIONS.CLOSE_TAB });
         },
       },
       {
-        text: "Reveal Page",
+        text: "Reveal",
         onClick: () => {
           unhideAll();
         },
@@ -38,27 +38,27 @@ const OVERLAY_CONFIG = {
     ],
   },
   [ACTIONS.KEYWORDS_DETECTED]: {
-    message: (keyword) => `Detected keyword: "${keyword}"`,
+    message: (keyword) => `this page contains keyword: "${keyword}"`,
     animateLogo: false,
     buttons: [
       {
-        text: "Hide Content",
-        onClick: async () => {
-          const topic = await chrome.storage.local.get("topic");
-          hideTopic(topic.topic);
-        },
-      },
-      {
-        text: "Close Tab",
+        text: "Close",
         onClick: () => {
           unhideAll();
           chrome.runtime.sendMessage({ action: ACTIONS.CLOSE_TAB });
         },
       },
       {
-        text: "Reveal Page",
+        text: "Reveal",
         onClick: () => {
           unhideAll();
+        },
+      },
+      {
+        text: "Hide",
+        onClick: async () => {
+          const topic = await chrome.storage.local.get("topic");
+          hideTopic(topic.topic);
         },
       },
     ],
@@ -183,6 +183,7 @@ function createLoadingAnimation(animate) {
     const span = document.createElement("span");
     span.className = "hide-loading-char";
     span.textContent = ch;
+    span.textDecoration = "line-through";
     logo.appendChild(span);
   }
 
@@ -230,7 +231,7 @@ function populateOverlay(overlay, action, keyword) {
   const logo = createLoadingAnimation(config.animateLogo);
   overlay.appendChild(logo);
 
-  if (config.message && keyword) {
+  if (config.message) {
     const info = document.createElement("div");
     info.className = "hide-info";
     info.textContent =
