@@ -60,3 +60,4 @@ Hide uses a popup to collect user input
 - [ ] rework prompts to improve keyword generation and text censorship
 - [x] display keyword match on overlay
 - [ ] display hiding hint on overlay
+- [ ] send cancelled event if user closes tab or reveals page

@@ -1,4 +1,3 @@
-/* Constants */
 const IGNORED_NODES = new Set([
   "SCRIPT",
   "STYLE",
@@ -6,10 +5,6 @@ const IGNORED_NODES = new Set([
   "TEXTAREA",
   "INPUT",
 ]);
-const CSS = "hide-content-css";
-const OVERLAY = "hide-overlay";
-const BLACKOUT = "hide-extension-blackout";
-const DATA_ORIGINAL = "hide-data-original";
 
 const ACTIONS = {
   HIDE_TOPIC: "hideTopic",
@@ -19,6 +14,8 @@ const ACTIONS = {
   CLOSE_TAB: "closeTab",
   CENSOR_TEXT: "censorText",
 };
+
+let isCancelled = false;
 
 const OVERLAY_CONFIG = {
   [ACTIONS.HIDE_TOPIC]: {
@@ -68,17 +65,15 @@ const OVERLAY_CONFIG = {
   },
 };
 
-let isCancelled = false;
-
 /* Utilities */
 
 /**
  * Injects the content stylesheet into the document.
  */
 function injectContentStylesheet() {
-  if (document.getElementById(CSS)) return;
+  if (document.getElementById("hide-content-css")) return;
   const link = document.createElement("link");
-  link.id = CSS;
+  link.id = "hide-content-css";
   link.rel = "stylesheet";
   link.type = "text/css";
   link.href = chrome.runtime.getURL("style.css");
@@ -119,35 +114,41 @@ function collectTextNodes() {
 }
 
 function getMinimalPageContent() {
-    let contentParts = [];
+  let contentParts = [];
 
-    const title = document.title;
-    if (title) {
-        contentParts.push(title);
-    }
+  const title = document.title;
+  if (title) {
+    contentParts.push(title);
+  }
 
-    const metaDescriptionTag = document.querySelector('meta[name="description"], meta[property="og:description"]');
-    const metaDescription = metaDescriptionTag ? metaDescriptionTag.content : '';
-    if (metaDescription) {
-        contentParts.push(metaDescription);
-    }
+  const metaDescriptionTag = document.querySelector(
+    'meta[name="description"], meta[property="og:description"]'
+  );
+  const metaDescription = metaDescriptionTag ? metaDescriptionTag.content : "";
+  if (metaDescription) {
+    contentParts.push(metaDescription);
+  }
 
-    const h1Element = document.querySelector('h1');
-    const h1Text = h1Element ? h1Element.innerText.trim() : '';
-    if (h1Text) {
-        contentParts.push(h1Text);
-    }
+  const h1Element = document.querySelector("h1");
+  const h1Text = h1Element ? h1Element.innerText.trim() : "";
+  if (h1Text) {
+    contentParts.push(h1Text);
+  }
 
-    const mainContentContainer = document.querySelector('main, article, #content, body');
-    const firstParagraph = mainContentContainer ? mainContentContainer.querySelector('p') : document.querySelector('p');
-    const pText = firstParagraph ? firstParagraph.innerText.trim() : '';
-    if (pText && pText.length > 30) { 
-        contentParts.push(pText);
-    }
-    
-    const minimalText = contentParts.join('. ');
+  const mainContentContainer = document.querySelector(
+    "main, article, #content, body"
+  );
+  const firstParagraph = mainContentContainer
+    ? mainContentContainer.querySelector("p")
+    : document.querySelector("p");
+  const pText = firstParagraph ? firstParagraph.innerText.trim() : "";
+  if (pText && pText.length > 30) {
+    contentParts.push(pText);
+  }
 
-    return minimalText;
+  const minimalText = contentParts.join(". ");
+
+  return minimalText;
 }
 
 /* Overlay Management */
@@ -157,10 +158,10 @@ function getMinimalPageContent() {
  * @returns {HTMLElement} - The overlay element.
  */
 function getOrCreateOverlay() {
-  let overlay = document.getElementById(OVERLAY);
+  let overlay = document.getElementById("hide-overlay");
   if (!overlay) {
     overlay = document.createElement("div");
-    overlay.id = OVERLAY;
+    overlay.id = "hide-overlay";
     overlay.classList.add("hide-overlay");
     document.body.appendChild(overlay);
   }
@@ -231,7 +232,11 @@ function populateOverlay(overlay, action, keyword) {
 
   if (config.message && keyword) {
     const info = document.createElement("div");
-    info.textContent = typeof config.message === "function" ? config.message(keyword) : config.message;
+    info.className = "hide-info";
+    info.textContent =
+      typeof config.message === "function"
+        ? config.message(keyword)
+        : config.message;
     overlay.appendChild(info);
   }
 
@@ -261,7 +266,7 @@ function showOverlay(action = ACTIONS.HIDE_TOPIC, keyword) {
  * Removes the overlay from the document.
  */
 function removeOverlay() {
-  const overlay = document.getElementById(OVERLAY);
+  const overlay = document.getElementById("hide-overlay");
   if (overlay) overlay.remove();
 }
 
@@ -341,8 +346,8 @@ async function processTextNode(node, topic, fragment) {
       if (s.censored) {
         const span = document.createElement("span");
         span.textContent = s.text;
-        span.classList.add(BLACKOUT);
-        span.setAttribute(DATA_ORIGINAL, s.text);
+        span.classList.add("hide-extension-blackout");
+        span.setAttribute("hide-data-original", s.text);
         censored = true;
         return span;
       } else {
@@ -367,9 +372,12 @@ async function processTextNode(node, topic, fragment) {
  */
 function unhideAll() {
   isCancelled = true;
-  removeOverlay();
+  const overlay = document.getElementById("hide-overlay");
+  if (overlay) overlay.remove();
 
-  const hidden = Array.from(document.querySelectorAll(`.${BLACKOUT}`));
+  const hidden = Array.from(
+    document.querySelectorAll(".hide-extension-blackout")
+  );
 
   if (hidden.length === 0) {
     return;
@@ -382,7 +390,7 @@ function unhideAll() {
       const parent = element.parentNode;
       if (!parent) continue;
 
-      const originalText = element.getAttribute(DATA_ORIGINAL);
+      const originalText = element.getAttribute("hide-data-original");
       if (originalText !== null) {
         const textNode = document.createTextNode(originalText);
         fragment.appendChild(textNode);
@@ -404,18 +412,27 @@ function unhideAll() {
 
 /* Event Listeners */
 
-window.addEventListener('load', () => {
-    const minimalContent = getMinimalPageContent();
-    chrome.storage.local.get("keywords").then((result) => {
-      const keywords = result.keywords || [];
-      console.log("Checking minimal page content for keywords:", minimalContent, keywords);
-      const minimalContentMatches = keywords.some((keyword) => {
-        return minimalContent.toLowerCase().includes(keyword.toLowerCase());
-      });
-      if (minimalContentMatches) {
-        showOverlay(ACTIONS.KEYWORDS_DETECTED, keywords.find((keyword) => minimalContent.toLowerCase().includes(keyword.toLowerCase())));
-      }
+window.addEventListener("load", () => {
+  const minimalContent = getMinimalPageContent();
+  chrome.storage.local.get("keywords").then((result) => {
+    const keywords = result.keywords || [];
+    console.log(
+      "Checking minimal page content for keywords:",
+      minimalContent,
+      keywords
+    );
+    const minimalContentMatches = keywords.some((keyword) => {
+      return minimalContent.toLowerCase().includes(keyword.toLowerCase());
     });
+    if (minimalContentMatches) {
+      showOverlay(
+        ACTIONS.KEYWORDS_DETECTED,
+        keywords.find((keyword) =>
+          minimalContent.toLowerCase().includes(keyword.toLowerCase())
+        )
+      );
+    }
+  });
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

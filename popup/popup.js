@@ -9,7 +9,7 @@
  */
 function createKeywordElement(keyword, index, removeCallback) {
   const keywordElement = document.createElement("span");
-  keywordElement.className = "keyword-item";
+  keywordElement.className = "hide-keyword-item";
   keywordElement.textContent = keyword;
   keywordElement.addEventListener("click", () => removeCallback(index));
   return keywordElement;
@@ -22,7 +22,7 @@ function createKeywordElement(keyword, index, removeCallback) {
  * @param {Function} removeCallback - The callback to remove a keyword.
  */
 function updateKeywordContainer(container, keywords, removeCallback) {
-  container.classList.remove("loading");
+  container.classList.remove("hide-loading");
   container.innerHTML = "";
 
   if (keywords.length > 0) {
@@ -46,7 +46,7 @@ function updateKeywordContainer(container, keywords, removeCallback) {
  */
 function handleKeywordError(container, errorMessage) {
   console.error(errorMessage);
-  container.classList.remove("loading");
+  container.classList.remove("hide-loading");
   container.innerHTML = `<p>${errorMessage}</p>`;
 }
 
@@ -64,7 +64,7 @@ function handleFormSubmit() {
       if (!topic) return;
 
       storedKeywordsContainer.innerHTML = "<p>Loading keywords...</p>";
-      storedKeywordsContainer.classList.add("loading");
+      storedKeywordsContainer.classList.add("hide-loading");
 
       chrome.runtime.sendMessage({ action: "storeTopic", topic }, () => {
         if (chrome.runtime.lastError) {
