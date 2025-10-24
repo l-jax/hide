@@ -2,37 +2,40 @@
 
 An AI-powered Google Chrome Extension that hides words you don't want to see.
 
-Under construction for [Google Chrome Built-in AI Challenge 2025](https://googlechromeai2025.devpost.com/)
+Made for [Google Chrome Built-in AI Challenge 2025](https://googlechromeai2025.devpost.com/)
 
 ## Features
 
-- Blocks out web pages to conceal unwanted content
 - Accepts free text input to find out exacty what you want to **hide**
+- Covers pages likely to contain unwanted content
 - Uses Google's [Prompt API](https://developer.chrome.com/docs/ai/prompt-api) to assess the text
 - Censors key words, phrases, and sentences
 - Reveals the page with unwanted content hidden
 
 ## How to Install
 
-Hide is under construction. To try it locally:
+Hide is a hackathon project. To try it locally:
 
-1.  Clone this repo
-    ```bash
-    git clone https://github.com/l-jax/hide.git
-    ```
-2.  Open Chrome and go to `chrome://extensions/`
-3.  Enable **Developer mode** in the top right corner
-4.  Click **Load unpacked** and select the root directory
+1. Clone this repo `git clone https://github.com/l-jax/hide.git`
+2. Run `npm install` in the root directory 
+3. Run `npm run build`
+4. Open Chrome and go to `chrome://extensions/`
+5. Enable **Developer mode** in the top right corner
+6. Click **Load unpacked** and select the `dist` directory
 
 ## How to Use
-
-Hide uses a popup to collect user input
-
 1. Click on the puzzle piece icon in the top right of Chrome
 2. Find **hide** in the list of extensions and pin for easy access
 3. Click the **hide** icon to open the popup
 4. Type a short prompt explaining what you want to hide
-5. Click the button and watch as the unwanted content disappears
+5. Click the button and wait for **hide** to generate keywords related to your topic
+
+<img width="357" height="418" alt="image" src="https://github.com/user-attachments/assets/ec65e133-cebf-4adf-b329-c24fefd8c54f" />
+
+6. Try to visit a website with content that you don't want to see
+7. Choose to reveal the page, close the tab, or hide the unwanted content
+
+<img width="400" height="400" alt="image" src="https://github.com/user-attachments/assets/1376521b-f33e-45a3-954c-27a6fd7f2a40" />
 
 ## Work in Progress
 
@@ -61,4 +64,4 @@ Hide uses a popup to collect user input
 - [x] display keyword match on overlay
 - [x] display hiding hint on overlay
 - [x] display keyword loading in popup
-- [ ] update README to reflect new functionality
+- [x] update README to reflect new functionality
