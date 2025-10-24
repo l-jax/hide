@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minimal Node Filter Test Page - Astrology</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        padding: 15px;
+      }
+      .section {
+        margin-bottom: 20px;
+        padding: 10px;
+        border-left: 4px solid #8aa166;
+        background-color: #fef4ed;
+      }
+      h1,
+      h2 {
+        color: #151715;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Content Filter Test</h1>
+    <p>
+      This compact document is designed to test content filtering efficiency.
+    </p>
+
+    <hr />
+
+    <div class="section" id="easy-identification">
+      <h2>Section 1: Easy Astrology Keywords</h2>
+      <p>
+        This is the simplest test, containing direct astrology terms. My
+        horoscope for today mentions my Sun sign is Virgo, while my moon is in
+        Aries. We need to check the zodiac signs for alignment. The positions of
+        Mars and Venus are key to calculating the natal chart. Discussion of
+        celestial movements and the twelve houses is common among enthusiasts.
+        The constellations themselves are studied by many.
+      </p>
+    </div>
+
+    <hr />
+
+    <div class="section" id="unrelated-topics">
+      <h2>Section 2: Unrelated General Content</h2>
+      <p>
+        This section is purely for testing against over-blocking. The local
+        grocery store has a sale on organic produce this week. I need to finish
+        coding the Python script by 5 PM. Mount Everest is the highest peak. The
+        latest operating system update includes new security protocols and
+        faster processing speeds.
+      </p>
+    </div>
+
+    <hr />
+
+    <div class="section" id="challenging-identification">
+      <h2>Section 3: Challenging Contextual Blend</h2>
+      <p>
+        This final section mixes astronomy, mythology, and challenging cultural
+        terms. The conjunction of Jupiter and Saturn is a great spectacle.
+        Historically, this alignment was used for predictions in esoteric texts.
+        The ephemeris provides precise positional data vital for space
+        navigation. The ancient Greeks plotted the precession of the equinoxes.
+        Modern analysis links archetypal systems in Jungian psychology to the
+        concept of quadruplicities. The current moon's phase is waxing gibbous,
+        which influences tidal gravitational pull globally.
+      </p>
+    </div>
+  </body>
+</html>
