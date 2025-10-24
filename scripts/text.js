@@ -20,21 +20,20 @@ export async function storeKeywords(topic) {
   }
 
   const prompt = `
-**TASK:** Act as an expert Search Analyst and Linguist. Your task is to generate a concise list of high-impact keywords and phrases that would most likely appear in the **URL slug**, **HTML page title**, and **meta description** of a website that focuses on the **TOPIC**.
+**TASK:** Generate a set of keywords and phrases that would most likely appear in the **URL slug**, **HTML page title**, and **meta description** of a website that focuses on the **TOPIC**.
 
 **TOPIC:** ${topic}
 
 **INSTRUCTIONS & CONSTRAINTS :**
-1.  **Format:** Output an array of strings. Do NOT include any numbering, prose, or introductory/explanatory sentences.
-2.  **Focus:** The terms must directly indicate the TOPIC.
-3.  **Redundancy:** Do NOT include phrases that contain another shorter keyword already in the list. (e.g., if you list "cat," do not also list "cat toy").
-4.  **Inflection/Plurals:** For head terms, include **both** the singular and plural forms if they are common search terms. For longer phrases, use the most natural form.
-5.  **Quantity:** Generate between 10 and 15 unique, high-utility keywords/phrases.
+1. FOCUS: The terms must directly indicate the TOPIC.
+2. REDUNDANCY: Output a set. Do NOT include duplicates or phrases that contain a shorter keyword already in the set.
+3. PLURALS: For head terms, include both the singular and plural forms if they differ significantly in spelling eg. "goose" and "geese"
+4. QUANTITY: Generate between 10 and 15 unique, high-utility keywords/phrases.
 
-**KEYWORD CRITERIA (Generate terms for these categories):**
-* **Topic Head Terms (Short, singular AND plural):** The most essential, 1-2 word terms.
-* **Specific Entity Terms:** Names of common items or practices within the topic.
-* **Action/Intent Terms (Longer):** Phrases that suggest related content.
+**KEYWORD CRITERIA**
+* HEAD TERMS: The most essential, 1-2 word terms.
+* SPECIFIC ENTITY TERMS: Names of common items or practices within the topic.
+* ACTION/INTENT TERMS: Phrases that suggest related content.
 **START GENERATION NOW:**
 `;
   const schema = {
@@ -127,18 +126,20 @@ export async function censorSentences(text) {
  */
 function buildTopicAnalysisPrompt(sentences, topic) {
   const header = `
-**TASK:** Review a block of text and identify which sentences **DIRECTLY DISCUSS** the **TOPIC**.
+**TASK:** Identify sentences that **DIRECTLY DISCUSS** the **TOPIC**.
 
 **TOPIC:** ${topic}
 
 **INSTRUCTIONS & OUTPUT FORMAT:**
 
-If the TOPIC has more than one meaning, use the most common meaning. Do not change your understanding of the TOPIC based on the context of the sentences.
-For each sentence, first check **RELEVANCE to the TOPIC**. If not relevant, **Output false immediately**. 
-If relevant, evaluate if it meets the **HIGH THRESHOLD** of explicit discussion about the TOPIC.
+If the TOPIC has more than one meaning, use the most common meaning.
+Do not change your understanding of the TOPIC based on the context of the sentence.
 
-1.  **REASONING:** State clearly whether the sentence is RELEVANT or IRRELEVANT to the TOPIC. If relevant, state whether it meets the HIGH THRESHOLD.
-2.  **OUTPUT:** Provide the final decision (true or false).
+1. REASONING: State clearly whether the sentence is RELEVANT or IRRELEVANT to the TOPIC
+2. If IRRELEVANT: output false immediately.
+3. If RELEVANT: evaluate whether the sentence explicitly discusses the topic or is only tangentially related.
+   - If it EXPLICITLY DISCUSSES the TOPIC, output true.
+   - If it is only TANGENTIALLY RELATED, output false.
 
 **START PROCESSING THE TEXT NOW:**
 `;
