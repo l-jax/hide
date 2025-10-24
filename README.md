@@ -35,7 +35,8 @@ Hide is a hackathon project. To try it locally:
 6. Try to visit a website with content that you don't want to see
 7. Choose to reveal the page, close the tab, or hide the unwanted content
 
-<img width="400" height="400" alt="image" src="https://github.com/user-attachments/assets/1376521b-f33e-45a3-954c-27a6fd7f2a40" />
+![hide-loading](https://github.com/user-attachments/assets/957f6c72-c208-4e87-a5f7-277ce76e48aa)
+
 
 ## Work in Progress
 
