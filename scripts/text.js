@@ -67,7 +67,17 @@ export async function storeKeywords(topic) {
  * @param {string} topic - The topic to censor.
  * @returns {Promise<Object[]>} - A promise that resolves to an array of sentences with censorship information.
  */
-export async function censorSentences(text, topic) {
+export async function censorSentences(text) {
+  const result = await chrome.storage.local.get(["topic"]);
+  const topic = result.topic || "";
+
+  console.log("Censoring sentences for topic:", topic);
+
+  if (!topic || typeof topic !== "string" || !topic.trim()) {
+    console.error(ERROR_MESSAGES.INVALID_TOPIC, topic);
+    return [];
+  }
+
   const sentences = splitIntoSentences(text);
   if (sentences.length === 0) return [];
 
@@ -122,6 +132,8 @@ function buildTopicAnalysisPrompt(sentences, topic) {
 **TOPIC:** ${topic}
 
 **INSTRUCTIONS & OUTPUT FORMAT:**
+
+If the TOPIC has more than one meaning, use the most common meaning. Do not change your understanding of the TOPIC based on the context of the sentences.
 For each sentence, first check **RELEVANCE to the TOPIC**. If not relevant, **Output false immediately**. 
 If relevant, evaluate if it meets the **HIGH THRESHOLD** of explicit discussion about the TOPIC.
 
