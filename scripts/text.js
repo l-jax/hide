@@ -20,20 +20,14 @@ export async function storeKeywords(topic) {
   }
 
   const prompt = `
-**TASK:** Generate a set of keywords and phrases that would most likely appear in the **URL slug**, **HTML page title**, and **meta description** of a website that focuses on the **TOPIC**.
+**TASK:** Generate a set of keywords related to the given topic.
 
 **TOPIC:** ${topic}
 
 **INSTRUCTIONS & CONSTRAINTS :**
 1. FOCUS: The terms must directly indicate the TOPIC.
-2. REDUNDANCY: Output a set. Do NOT include duplicates or phrases that contain a shorter keyword already in the set.
-3. PLURALS: For head terms, include both the singular and plural forms if they differ significantly in spelling eg. "goose" and "geese"
-4. QUANTITY: Generate between 10 and 15 unique, high-utility keywords/phrases.
-
-**KEYWORD CRITERIA**
-* HEAD TERMS: The most essential, 1-2 word terms.
-* SPECIFIC ENTITY TERMS: Names of common items or practices within the topic.
-* ACTION/INTENT TERMS: Phrases that suggest related content.
+2. FORMAT: Provide the keywords as a JSON array of strings.
+3. QUANTITY: Include at least 5 keywords, but no more than 15.
 **START GENERATION NOW:**
 `;
   const schema = {
@@ -46,10 +40,19 @@ export async function storeKeywords(topic) {
   try {
     const result = await runPrompt(prompt, schema);
     console.log("Keyword extraction result:", result);
-    const keywords = result.keywords || [];
+
+    let keywords;
+    if (!result || !Array.isArray(result.keywords) || result.keywords.length === 0) {
+      console.warn("No keywords extracted, using topic as fallback.");
+      keywords = [topic];
+    } else {
+      keywords = result.keywords;
+    }
+
     chrome.storage.local.set({ keywords }, () => {
       chrome.runtime.sendMessage({ action: "updateKeywords", keywords });
     });
+
     console.log("Extracted keywords:", keywords);
     return keywords;
   } catch (error) {
