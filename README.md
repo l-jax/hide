@@ -2,7 +2,7 @@
 
 An AI-powered Google Chrome Extension that hides words you don't want to see.
 
-Made for [Google Chrome Built-in AI Challenge 2025](https://googlechromeai2025.devpost.com/)
+Made for [Google Chrome Built-in AI Challenge 2025](https://devpost.com/software/hide-58bc2d)
 
 ## Features
 
