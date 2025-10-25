@@ -12,7 +12,6 @@
     "default_icon": "images/icon128.png"
   },
   "permissions": ["scripting", "activeTab", "storage"],
-  "host_permissions": ["file:///*","http://*/*","https://*/*"],
   "background": {
     "service_worker": "scripts/background.js",
     "type": "module"
