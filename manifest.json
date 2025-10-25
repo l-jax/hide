@@ -11,8 +11,8 @@
     "default_popup": "popup/popup.html",
     "default_icon": "images/icon128.png"
   },
-  "permissions": ["scripting", "activeTab", "storage", "tabs"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": ["scripting", "activeTab", "storage"],
+  "host_permissions": ["file:///*","http://*/*","https://*/*"],
   "background": {
     "service_worker": "scripts/background.js",
     "type": "module"
@@ -20,13 +20,13 @@
   "content_scripts": [
     {
       "js": ["scripts/content.js"],
-      "matches": ["<all_urls>"]
+      "matches": ["file:///*","http://*/*","https://*/*"]
     }
   ],
   "web_accessible_resources": [
     {
       "resources": ["style.css"],
-      "matches": ["<all_urls>"]
+      "matches": ["file:///*","http://*/*","https://*/*"]
     }
   ],
   "trial_tokens": [
